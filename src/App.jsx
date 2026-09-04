@@ -8,8 +8,8 @@ import { useTable } from "./db";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
-  { key: "chd8", label: "Chd8 콜로니", icon: Rat },
-  { key: "gfap", label: "GFAP × rtTA × 4F2A", icon: Rat },
+  { key: "chd8", label: "CHD8", icon: Rat },
+  { key: "gfap", label: "GFAP x rtTA x 4F2A", icon: Rat },
   { key: "behavior", label: "행동실험 · IHC", icon: Rat },
 ];
 const CAGE_TYPES = {
@@ -341,15 +341,15 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       <header className="top">
         <div className="wrap top-in">
           <div>
-            <h1>랩 마우스 콜로니 현황</h1>
-            <p className="sub">케이지 · 개체 실시간 공유 · 누구나 열람하고 업데이트할 수 있어요</p>
+            <h1>Mouse Management</h1>
+            <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
             {me ? (
               <><span className="me">{me}</span>
                 <button className="btn btn-s" onClick={clearName}><UserCog size={14} /> 이름 변경</button></>
-            ) : <span className="me muted">열람 중 (편집하려면 이름 선택)</span>}
-            <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 기록</button>
+            ) : <span className="me muted">너 지금 보고있구나</span>}
+            <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 로그</button>
           </div>
         </div>
       </header>
@@ -388,7 +388,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           <div className="search">
             <Search size={15} />
             <input className="in" value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder="개체·유전자형·DOB·비고 검색 (예: HM, tdT 교체, IHC-14)" />
+              placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
           <span className="stat">케이지 {gCages.length} · 개체 {totalMice}</span>
@@ -431,7 +431,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-        초기 데이터는 GNTP 엑셀에서 옮겼고, 이후 업데이트는 이곳에서 관리합니다.
+        마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
       </div></footer>
     </div>
   );

@@ -2,7 +2,7 @@
 
 :root{
   --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD;
-  --warm-1:#E4DFD8; --warm-2:#C7C0B7; --warm-3:#9A9187;
+  --warm-1:#FAF7F2; --warm-2:#F0EBE3; --warm-3:#E2DACE;
   --t1:#1D1D1F; --t2:#6E6E73; --t3:#98989D;
   --sep:#D2D2D7; --sep-soft:#EBEBED;
   --blue:#0071E3; --blue-d:#0060C0; --blue-soft:#EAF3FE;
@@ -81,8 +81,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(
 input:focus-visible{outline:none}
 
 /* name bar */
-.namebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);
-  border:1px solid var(--sep-soft);border-radius:14px;padding:14px 16px;margin-top:20px}
+.namebar{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--sep-soft);border-radius:14px;
+  padding:14px 16px;margin-top:20px}
 .nb-t{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--t1)}
 .namechip{display:inline-flex;align-items:center;gap:2px;font-size:13px;font-weight:500;
   color:var(--t1);background:var(--bg);border:1px solid var(--sep-soft);border-radius:980px;
@@ -135,20 +136,22 @@ input:focus-visible{outline:none}
 .cage-edit .in{max-width:200px}
 
 /* table */
-.mtable{width:100%;border-collapse:collapse}
+.mtable{width:100%;border-collapse:collapse;table-layout:auto}
+.mtable tr{background-clip:padding-box}
 .mtable th{text-align:left;font-size:12px;font-weight:500;color:var(--t3);padding:11px 20px;border-bottom:1px solid var(--sep-soft)}
 .mtable td{padding:12px 20px;border-bottom:1px solid var(--sep-soft);font-size:14px;vertical-align:middle}
 .mtable tbody tr:last-child td{border-bottom:none}
-.mtable tbody tr{transition:background .15s ease}
-.mtable tbody tr:hover{background:var(--surface-2)}
-.mtable tr.baby td{background:var(--surface-2)}
+.mtable tbody tr td{transition:background .15s ease}
+.mtable tr.baby > td{background:var(--surface-2)}
+.mtable tr.baby > td.row-actions,.mtable tr.baby > td.hcell{background:var(--surface-2)}
+.mtable tr:hover > td{background:var(--surface-2)}
 .gchip{display:inline-block;font-family:var(--num);font-size:12px;font-weight:500;color:var(--t1);
   background:var(--bg);border-radius:7px;padding:3px 9px}
 .age{font-size:11px;font-weight:500;color:var(--t2);background:var(--bg);border-radius:980px;
   padding:2px 8px;margin-left:8px;font-variant-numeric:tabular-nums}
 .note{color:var(--t2);font-size:13px}
 .wt{font-family:var(--num);font-size:12px;color:var(--t2);background:var(--bg);border-radius:6px;padding:2px 7px;margin-left:7px}
-.row-actions{text-align:right;white-space:nowrap;opacity:0;transition:opacity .15s ease}
+.row-actions{text-align:right;white-space:nowrap;width:76px;opacity:0;transition:opacity .15s ease}
 tr:hover .row-actions{opacity:1}
 @media (hover:none){.row-actions{opacity:1}}
 .add-row{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;background:none;
@@ -184,8 +187,8 @@ tr:hover .row-actions{opacity:1}
 /* ---------- 좌우 여백(무대) + 본문 컨테이너 ---------- */
 body{
   background:
-    radial-gradient(95% 55% at 50% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 62%),
-    linear-gradient(180deg, var(--warm-1) 0%, var(--warm-2) 50%, var(--warm-3) 100%);
+    radial-gradient(95% 50% at 50% 0%, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, var(--warm-1) 0%, var(--warm-2) 52%, var(--warm-3) 100%);
   background-attachment:fixed;
 }
 
@@ -193,7 +196,7 @@ body{
   position:relative;z-index:1;
   max-width:1180px;margin:0 auto;background:var(--bg);
   min-height:100vh;overflow:hidden;
-  box-shadow:0 0 0 1px rgba(255,255,255,.5), 0 30px 80px -28px rgba(70,60,50,.45);
+  box-shadow:0 0 0 1px rgba(0,0,0,.05), 0 24px 60px -30px rgba(90,75,55,.35);
 }
 @media (min-width:1320px){
   .app{margin:34px auto;border-radius:22px;min-height:calc(100vh - 68px)}
