@@ -294,3 +294,11 @@ body.dragging-row::after{content:none}
 .dob-cell{white-space:nowrap}
 .dob-wrap{display:inline-flex;align-items:center;gap:0;justify-content:center}
 .dob-date{white-space:nowrap}
+
+/* 실험 완료 케이지 */
+.done-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+  color:#1D8C4B;background:#E8F6ED;border-radius:980px;padding:3px 10px}
+.cage.done{background:var(--surface-2);border-color:var(--sep-soft)}
+.cage.done .cage-title{color:var(--t2)}
+.cage.done .cage-head{background:var(--surface-2)}
+.done-section{margin-top:26px;padding-top:22px;border-top:1px solid var(--sep-soft)}

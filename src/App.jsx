@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw,
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
@@ -153,7 +153,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     if (ok) await cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
     return ok;
   };
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(!cage.done);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
   const [drag, setDrag] = useState(null); // {idx,dx,dy,mode,overIdx,side}
@@ -271,13 +271,14 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   if (q && list.length === 0) return null;
 
   return (
-    <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") +
+    <div className={"cage" + (cage.done ? " done" : "") + (dragCage?.isDragging ? " dragging" : "") +
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
         <span className="handle" title="드래그해서 케이지 순서 변경"
           draggable onDragStart={dragCage?.onDragStart} onDragEnd={dragCage?.onDragEnd}><GripVertical size={15} /></span>
         <span className="ctype" style={{ background: t.color }}>{t.label}</span>
+        {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
         {editCage ? (
           <div className="cage-edit">
             <input className="in" value={cf.label} onChange={(e) => setCf({ ...cf, label: e.target.value })} />
@@ -296,6 +297,13 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-actions">
+              {cage.grp === "behavior" && (
+                <button className="iconbtn" title={cage.done ? "완료 취소" : "실험 완료로 표시"}
+                  onClick={() => cageOps.update(cage.id, { done: !cage.done, done_at: cage.done ? null : new Date().toISOString() },
+                    me, `케이지 ${cage.label} ${cage.done ? "완료 취소" : "실험 완료"}`)}>
+                  {cage.done ? <RotateCcw size={14} /> : <CheckCircle2 size={14} />}
+                </button>
+              )}
               <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
               <button className="iconbtn danger" title="케이지 삭제"
                 onClick={deleteCage}><Trash2 size={14} /></button>
@@ -342,7 +350,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       )}
 
       {open && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
       )}
     </div>
   );
@@ -387,6 +395,7 @@ function AppInner() {
   const [cOver, setCOver] = useState(null);
   const [cSide, setCSide] = useState("above");
   const askText = usePrompt();
+  const [showDone, setShowDone] = useState(false);
   const [ageUnit, setAgeUnit] = useState(() => {
     const v = (() => { try { return localStorage.getItem(AGE_KEY); } catch { return null; } })();
     return AGE_UNITS.includes(v) ? v : "m";
@@ -407,7 +416,9 @@ function AppInner() {
 VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   }
 
-  const gCages = cages.filter((c) => c.grp === grp);
+  const allG = cages.filter((c) => c.grp === grp);
+  const doneCages = grp === "behavior" ? allG.filter((c) => c.done) : [];
+  const gCages = grp === "behavior" ? allG.filter((c) => !c.done) : allG;
   const byCage = {};
   mice.forEach((m) => { (byCage[m.cage_id] = byCage[m.cage_id] || []).push(m); });
   const totalMice = gCages.reduce((n, c) => n + (byCage[c.id]?.length || 0), 0);
@@ -480,7 +491,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
-          <span className="stat">케이지 {gCages.length} · 마우스 {totalMice}</span>
+          <span className="stat">
+            케이지 {gCages.length} · 마우스 {totalMice}
+            {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
+          </span>
           <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>
         </div>
 
@@ -525,6 +539,16 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
                   },
                 }} />
             ))}
+        {doneCages.length > 0 && !q && (
+          <div className="done-section">
+            <button className="collapse-bar" onClick={() => setShowDone((v) => !v)}>
+              {showDone ? <ChevronUp size={16} /> : <ChevronDown size={16} />} 완료된 실험 {doneCages.length}건 {showDone ? "숨기기" : "보기"}
+            </button>
+            {showDone && doneCages.map((c) => (
+              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} />
+            ))}
+          </div>
+        )}
       </main>
 
       <footer className="foot"><div className="wrap">
