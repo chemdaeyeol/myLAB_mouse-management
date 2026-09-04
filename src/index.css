@@ -2,7 +2,7 @@
 
 :root{
   --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD;
-  --sky-1:#8AACD8; --sky-2:#6D8FBE; --sky-3:#41618E;
+  --sky-1:#A9C0DC; --sky-2:#7E9BC0; --sky-3:#54718F;
   --t1:#1D1D1F; --t2:#6E6E73; --t3:#98989D;
   --sep:#D2D2D7; --sep-soft:#EBEBED;
   --blue:#0071E3; --blue-d:#0060C0; --blue-soft:#EAF3FE;
@@ -175,18 +175,11 @@ tr:hover .row-actions{opacity:1}
 /* ---------- 좌우 여백(무대) + 본문 컨테이너 ---------- */
 body{
   background:
-    linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 46%, var(--sky-3) 100%)
-    fixed;
+    radial-gradient(90% 55% at 50% 0%, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 48%, var(--sky-3) 100%);
+  background-attachment:fixed;
 }
-/* 왼쪽 위 여백의 애플 글로우 */
-body::before{
-  content:"";position:fixed;z-index:0;pointer-events:none;
-  left:max(6px, calc(50vw - 760px));top:14px;
-  width:clamp(150px, 15vw, 260px);aspect-ratio:1;
-  background:url('/apple-glow.png') center/contain no-repeat;
-  opacity:.95;
-}
-@media (max-width:1360px){ body::before{display:none} }
+
 .app{
   position:relative;z-index:1;
   max-width:1180px;margin:0 auto;background:var(--bg);
