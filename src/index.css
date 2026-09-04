@@ -145,8 +145,10 @@ input:focus-visible{outline:none}
 .mtable tr:hover > td{background:var(--surface-2)}
 .gchip{display:inline-block;font-family:var(--num);font-size:12px;font-weight:500;color:var(--t1);
   background:var(--bg);border-radius:7px;padding:3px 9px}
-.age{font-size:11px;font-weight:500;color:var(--t2);background:var(--bg);border-radius:980px;
-  padding:2px 8px;margin-left:8px;font-variant-numeric:tabular-nums}
+.age{font-family:inherit;font-size:11px;font-weight:500;color:var(--t2);background:var(--bg);
+  border:none;border-radius:980px;padding:3px 9px;margin-left:8px;
+  font-variant-numeric:tabular-nums;cursor:pointer;transition:background .14s,color .14s}
+.age:hover{background:var(--blue-soft);color:var(--blue-d)}
 .note{color:var(--t2);font-size:13px}
 .wt{font-family:var(--num);font-size:12px;color:var(--t2);background:var(--bg);border-radius:6px;padding:2px 7px;margin-left:7px}
 .row-actions{text-align:right;white-space:nowrap;width:76px;opacity:0;transition:opacity .15s ease}

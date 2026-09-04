@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
   History, GripVertical, Rat,
@@ -46,7 +46,24 @@ function ageWeeks(dobStr) {
   const w = Math.floor((Date.now() - d.getTime()) / (7 * 86400000));
   return w >= 0 && w < 400 ? w : null;
 }
-const ageBadge = (w) => (w == null ? null : w < 4 ? "baby" : `${w}w`);
+// 표시 단위: auto → w → m → y (배지 클릭으로 순환)
+const AGE_UNITS = ["auto", "w", "m", "y"];
+const AGE_KEY = "mc_age_unit";
+export const AgeUnitCtx = createContext({ unit: "auto", cycle: () => {} });
+
+const ageBadge = (w, unit = "auto") => {
+  if (w == null) return null;
+  if (unit === "w") return `${w}w`;
+  if (unit === "m") return `${Math.floor(w / 4.345)}m`;
+  if (unit === "y") return `${(w / 52.14).toFixed(1)}y`;
+  // auto
+  if (w < 4) return "baby";
+  if (w < 13) return `${w}w`;
+  const months = Math.floor(w / 4.345);
+  if (months < 24) return `${months}m`;
+  const years = Math.floor(months / 12), rem = months % 12;
+  return rem ? `${years}y ${rem}m` : `${years}y`;
+};
 
 /* ---------------- small UI ---------------- */
 function Field({ label, children }) {
@@ -83,6 +100,7 @@ function MouseForm({ init, cage, onSave, onCancel }) {
 function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
   overI, setOverI, overSide, setOverSide, mice, setEditing }) {
   const confirm = useConfirm();
+  const { unit, cycle } = useContext(AgeUnitCtx);
   const doDelete = async () => {
     const ok = await confirm({
       title: "개체를 삭제할까요?",
@@ -127,12 +145,18 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
           </span>
         )}
       </td>
-      <td className="mono strong">{m.label}</td>
+      <td className="mono strong c">{m.label}</td>
       <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
       <td className="c">{m.g3 && <span className="gchip">{m.g3}</span>}</td>
-      <td className="mono">{m.dob}{ageBadge(w) && <span className="age">{ageBadge(w)}</span>}</td>
-      <td className="note">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
+      <td className="mono c">{m.dob}
+        {ageBadge(w, unit) && (
+          <button className="age" title="클릭하면 단위 전환 (자동 · 주 · 개월 · 년)"
+            onClick={(e) => { e.stopPropagation(); cycle(); }}
+            onPointerDown={(e) => e.stopPropagation()}>{ageBadge(w, unit)}</button>
+        )}
+      </td>
+      <td className="note c">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
       <td className="row-actions">
         <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}><Pencil size={13} /></button>
         <button className="iconbtn danger" title="삭제" onClick={doDelete}><Trash2 size={13} /></button>
@@ -220,12 +244,12 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
           <thead>
             <tr>
               <th style={{ width: "34px" }}></th>
-              <th style={{ width: "12%" }}>개체</th>
+              <th className="c" style={{ width: "12%" }}>개체</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
-              <th style={{ width: "17%" }}>DOB</th>
-              <th>비고</th>
+              <th className="c" style={{ width: "17%" }}>DOB</th>
+              <th className="c">비고</th>
               <th style={{ width: "72px" }}></th>
             </tr>
           </thead>
@@ -299,6 +323,14 @@ function AppInner() {
   const [cOver, setCOver] = useState(null);
   const [cSide, setCSide] = useState("above");
   const askText = usePrompt();
+  const [ageUnit, setAgeUnit] = useState(() => {
+    try { return localStorage.getItem(AGE_KEY) || "auto"; } catch { return "auto"; }
+  });
+  const cycleAge = () => setAgeUnit((u) => {
+    const next = AGE_UNITS[(AGE_UNITS.indexOf(u) + 1) % AGE_UNITS.length];
+    try { localStorage.setItem(AGE_KEY, next); } catch { /* noop */ }
+    return next;
+  });
   const [cages, cageOps] = useTable("mc_cages", ["grp", "sort"]);
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
   const [logs] = useTable("mc_log", []);
@@ -333,6 +365,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   };
 
   return (
+    <AgeUnitCtx.Provider value={{ unit: ageUnit, cycle: cycleAge }}>
     <div className="app">
       <header className="top">
         <div className="wrap top-in">
@@ -394,7 +427,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(q.toLowerCase())))) ? (
               <div className="empty">
                 <p className="empty-t">‘{q}’ 검색 결과가 없어요</p>
-                <p className="muted">개체명 · 유전자형 · DOB · 비고에서 찾습니다.</p>
+                <p className="muted">HM · 유전자형 · DOB 검색</p>
                 <button className="btn btn-s" style={{ marginTop: 12 }} onClick={() => setQ("")}>검색 지우기</button>
               </div>
             ) :
@@ -433,6 +466,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
         마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
       </div></footer>
     </div>
+    </AgeUnitCtx.Provider>
   );
 }
 
