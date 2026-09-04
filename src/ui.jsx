@@ -83,7 +83,7 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     if (panel) {
       const r = panel.getBoundingClientRect();
       // 패널 좌우에 여백이 있으면 그 여백으로 끌었는지 판정
-      if (r.left > 12 || r.right < vw - 12) return clientX < r.left + 6 || clientX > r.right - 6;
+      if (r.left > 12 || r.right < vw - 12) return clientX < r.left + 18 || clientX > r.right - 18;
     }
     // 여백이 없는 좁은 화면에서는 화면 가장자리 기준
     return clientX < 30 || clientX > vw - 30;
@@ -100,7 +100,8 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     if (!s.active) {
       if (Math.abs(mx) < 12 || Math.abs(mx) < Math.abs(my)) return; // 세로 스크롤 우선
       s.active = true;
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
+      document.body.classList.add("dragging-row");
     }
     setDx(mx);
     setOutside(isOutsidePanel(e.clientX));
@@ -109,6 +110,7 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     const s = st.current; const moved = dx; const wasOutside = outside;
     st.current = null;
     setOutside(false);
+    document.body.classList.remove("dragging-row");
     if (s?.active && (Math.abs(moved) >= threshold || wasOutside)) {
       setDx(moved > 0 ? 340 : -340);
       const ok = await onDelete();
@@ -121,8 +123,8 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     dx, armed, outside,
     bind: {
       onPointerDown, onPointerMove,
-      onPointerUp: finish, onPointerCancel: () => { st.current = null; setDx(0); },
-      onPointerLeave: () => { if (st.current?.active) finish(); },
+      onPointerUp: finish,
+      onPointerCancel: () => { st.current = null; setDx(0); setOutside(false); document.body.classList.remove("dragging-row"); },
     },
   };
 }
