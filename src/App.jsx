@@ -16,7 +16,7 @@ const GROUPS = [
 const CAGE_TYPES = {
   mating: { label: "Mating", color: "#0071E3" },
   dox: { label: "DOX", color: "#C2610B" },
-  behavior: { label: "Behavior", color: "#7A3FBF" },
+  behavior: { label: "Behavior Test", color: "#7A3FBF" },
   ihc: { label: "IHC", color: "#0F7C8A" },
   other: { label: "기타", color: "#86868B" },
 };
@@ -175,7 +175,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       else if (L.startsWith("M")) male++;
       else if (L.startsWith("F")) female++;
     });
-    return { male, female, baby, total: mice.length };
+    return { male, female, baby, total: mice.length - baby };
   }, [mice]);
 
   const confirmDelete = async (mouse) => {
@@ -293,7 +293,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             <h3 className="cage-title">{cage.label}</h3>
             {cage.note && <span className="cage-note">{cage.note}</span>}
             <span className="cage-counts">
-              ♂{counts.male} · ♀{counts.female}{counts.baby ? ` · baby ${counts.baby}` : ""} · 총 {counts.total}
+              ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-actions">
               <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
@@ -342,7 +342,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       )}
 
       {open && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
     </div>
   );
