@@ -4,20 +4,49 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 /* ---------------- 확인 팝업 (브라우저 confirm 대체) ---------------- */
 const ConfirmCtx = createContext(() => Promise.resolve(false));
 export const useConfirm = () => useContext(ConfirmCtx);
+const PromptCtx = createContext(() => Promise.resolve(null));
+export const usePrompt = () => useContext(PromptCtx);
 
 export function ConfirmProvider({ children }) {
   const [state, setState] = useState(null); // {title, body, danger, resolve}
+  const [ask, setAsk] = useState(null);     // {title, body, placeholder, value, resolve}
 
   const confirm = useCallback((opts) => {
     const o = typeof opts === "string" ? { title: opts } : opts || {};
     return new Promise((resolve) => setState({ danger: true, ...o, resolve }));
   }, []);
+  const prompt = useCallback((opts) => {
+    const o = typeof opts === "string" ? { title: opts } : opts || {};
+    return new Promise((resolve) => setAsk({ value: "", ...o, resolve }));
+  }, []);
 
   const close = (v) => { state?.resolve(v); setState(null); };
+  const closeAsk = (v) => { ask?.resolve(v); setAsk(null); };
 
   return (
     <ConfirmCtx.Provider value={confirm}>
+      <PromptCtx.Provider value={prompt}>
       {children}
+      {ask && (
+        <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && closeAsk(null)}>
+          <div className="modal" role="dialog" aria-modal="true">
+            <h3 className="modal-title">{ask.title}</h3>
+            {ask.body && <p className="modal-body">{ask.body}</p>}
+            <input className="in" style={{ marginTop: 16, textAlign: "center" }} autoFocus
+              placeholder={ask.placeholder || ""} value={ask.value}
+              onChange={(e) => setAsk({ ...ask, value: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && ask.value.trim()) closeAsk(ask.value.trim());
+                if (e.key === "Escape") closeAsk(null);
+              }} />
+            <div className="modal-actions">
+              <button className="btn btn-s" onClick={() => closeAsk(null)}>취소</button>
+              <button className="btn btn-p" disabled={!ask.value.trim()}
+                onClick={() => closeAsk(ask.value.trim())}>{ask.okText || "추가"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {state && (
         <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close(false)}>
           <div className="modal" role="dialog" aria-modal="true">
@@ -34,6 +63,7 @@ export function ConfirmProvider({ children }) {
           </div>
         </div>
       )}
+      </PromptCtx.Provider>
     </ConfirmCtx.Provider>
   );
 }
@@ -49,9 +79,14 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
   // 본문 패널(.app) 바깥(좌우 여백)으로 끌었는지 판정
   const isOutsidePanel = (clientX) => {
     const panel = document.querySelector(".app");
-    if (!panel) return false;
-    const r = panel.getBoundingClientRect();
-    return clientX < r.left + 4 || clientX > r.right - 4;
+    const vw = window.innerWidth;
+    if (panel) {
+      const r = panel.getBoundingClientRect();
+      // 패널 좌우에 여백이 있으면 그 여백으로 끌었는지 판정
+      if (r.left > 12 || r.right < vw - 12) return clientX < r.left + 6 || clientX > r.right - 6;
+    }
+    // 여백이 없는 좁은 화면에서는 화면 가장자리 기준
+    return clientX < 30 || clientX > vw - 30;
   };
 
   const onPointerDown = (e) => {

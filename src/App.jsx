@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
-import { ConfirmProvider, useConfirm, useSwipeDelete } from "./ui.jsx";
+import { ConfirmProvider, useConfirm, usePrompt, useSwipeDelete } from "./ui.jsx";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
@@ -151,7 +151,6 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     if (ok) await cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
     return ok;
   };
-  const cageSwipe = useSwipeDelete({ onDelete: deleteCage, threshold: 130, disabled: !!q });
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
@@ -181,10 +180,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
 
   return (
     <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") +
-      (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "") +
-      (cageSwipe.dx !== 0 ? " swiping" : "") + (cageSwipe.armed ? " armed" : "")}
-      style={cageSwipe.dx ? { transform: `translateX(${cageSwipe.dx}px)` } : undefined}
-      {...cageSwipe.bind}
+      (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
         <span className="handle" title="드래그해서 케이지 순서 변경"
@@ -300,6 +296,7 @@ function AppInner() {
   const [cDrag, setCDrag] = useState(null);
   const [cOver, setCOver] = useState(null);
   const [cSide, setCSide] = useState("above");
+  const askText = usePrompt();
   const [cages, cageOps] = useTable("mc_cages", ["grp", "sort"]);
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
   const [logs] = useTable("mc_log", []);
@@ -318,7 +315,12 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   const recentLogs = [...logs].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 12);
 
   const addCage = async () => {
-    const label = prompt("새 케이지 이름 (예: 15, GL7, IHC-14)");
+    const label = await askText({
+      title: "새 케이지 추가",
+      body: "케이지 이름을 입력하세요.",
+      placeholder: "예: 15, GL7, IHC-14",
+      okText: "추가",
+    });
     if (!label) return;
     const proto = gCages[gCages.length - 1];
     await cageOps.add({
@@ -333,7 +335,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       <header className="top">
         <div className="wrap top-in">
           <div>
-            <h1>Mouse Colony</h1>
+            <h1>Mouse Management</h1>
             <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
@@ -378,8 +380,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
-          <span className="stat">Cage {gCages.length} · Mouse {totalMice}</span>
-          <button className="btn btn-p" onClick={addCage}><Plus size={15} /> Add Cage</button>
+          <span className="stat">케이지 {gCages.length} · 개체 {totalMice}</span>
+          <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>
         </div>
 
         {grp === "gfap" && <DoxPanel me={me} />}

@@ -252,9 +252,6 @@ tr.drop-below td{box-shadow:inset 0 -2px 0 0 var(--blue)}
 .mtable tbody tr.armed > td:last-child{box-shadow:inset -3px 0 0 #D70015}
 .mtable tbody tr:not(.swiping){transition:transform .18s cubic-bezier(.2,.9,.3,1)}
 
-/* 케이지 스와이프 삭제 */
-.cage.swiping{position:relative;z-index:3;cursor:grabbing;box-shadow:0 14px 36px -14px rgba(60,50,40,.5)}
-.cage:not(.swiping){transition:transform .18s cubic-bezier(.2,.9,.3,1)}
-.cage.armed{border-color:#D70015;background:#FFF6F6}
-.cage.armed .cage-head{background:#FFECEC}
+/* 행을 카드 밖(좌우 여백)으로 끌 수 있도록 잘림 해제 */
+.cage:has(tr.swiping){overflow:visible}
 .mtable tbody tr.armed > td{background:#FFECEC}
