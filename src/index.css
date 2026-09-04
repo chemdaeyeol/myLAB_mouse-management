@@ -2,7 +2,7 @@
 
 :root{
   --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD;
-  --sky-1:#A9C0DC; --sky-2:#7E9BC0; --sky-3:#54718F;
+  --warm-1:#E4DFD8; --warm-2:#C7C0B7; --warm-3:#9A9187;
   --t1:#1D1D1F; --t2:#6E6E73; --t3:#98989D;
   --sep:#D2D2D7; --sep-soft:#EBEBED;
   --blue:#0071E3; --blue-d:#0060C0; --blue-soft:#EAF3FE;
@@ -84,10 +84,19 @@ input:focus-visible{outline:none}
 .namebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);
   border:1px solid var(--sep-soft);border-radius:14px;padding:14px 16px;margin-top:20px}
 .nb-t{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--t1)}
-.namechip{font-size:13px;font-weight:500;color:var(--t1);background:var(--bg);
-  border:1px solid var(--sep-soft);border-radius:980px;padding:7px 15px;cursor:pointer;
-  font-family:inherit;transition:background .15s ease,border-color .15s ease}
-.namechip:hover{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-d)}
+.namechip{display:inline-flex;align-items:center;gap:2px;font-size:13px;font-weight:500;
+  color:var(--t1);background:var(--bg);border:1px solid var(--sep-soft);border-radius:980px;
+  padding:0 6px 0 0;font-family:inherit;transition:background .15s ease,border-color .15s ease}
+.namechip:hover{background:var(--blue-soft);border-color:var(--blue)}
+.namechip.managing{background:var(--bg);border-color:var(--sep)}
+.namechip.managing:hover{background:var(--bg);border-color:var(--sep)}
+.nc-name{background:none;border:none;font:inherit;color:inherit;cursor:pointer;
+  padding:7px 9px 7px 15px;border-radius:980px}
+.namechip:not(.managing):hover .nc-name{color:var(--blue-d)}
+.namechip.managing .nc-name{cursor:default;color:var(--t2)}
+.nc-del{display:inline-flex;align-items:center;justify-content:center;background:none;border:none;
+  color:var(--t3);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s,color .15s}
+.nc-del:hover{background:#FFE5E5;color:#D70015}
 
 /* panels */
 .panel{background:var(--surface);border:1px solid var(--sep-soft);border-radius:16px;padding:20px;margin-bottom:18px}
@@ -175,8 +184,8 @@ tr:hover .row-actions{opacity:1}
 /* ---------- 좌우 여백(무대) + 본문 컨테이너 ---------- */
 body{
   background:
-    radial-gradient(90% 55% at 50% 0%, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 60%),
-    linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 48%, var(--sky-3) 100%);
+    radial-gradient(95% 55% at 50% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 62%),
+    linear-gradient(180deg, var(--warm-1) 0%, var(--warm-2) 50%, var(--warm-3) 100%);
   background-attachment:fixed;
 }
 
@@ -184,7 +193,7 @@ body{
   position:relative;z-index:1;
   max-width:1180px;margin:0 auto;background:var(--bg);
   min-height:100vh;overflow:hidden;
-  box-shadow:0 0 0 1px rgba(255,255,255,.28), 0 30px 80px -28px rgba(20,40,70,.55);
+  box-shadow:0 0 0 1px rgba(255,255,255,.5), 0 30px 80px -28px rgba(70,60,50,.45);
 }
 @media (min-width:1320px){
   .app{margin:34px auto;border-radius:22px;min-height:calc(100vh - 68px)}
@@ -202,6 +211,14 @@ body{
 @media (hover:none){.handle{opacity:1}}
 .hcell{width:34px;padding-right:0 !important}
 
-tr.dragging,.cage.dragging{opacity:.4}
-tr.dropping td{box-shadow:inset 0 2px 0 var(--blue)}
-.cage.dropping{box-shadow:0 -3px 0 var(--blue)}
+tr.dragging,.cage.dragging{opacity:.35}
+/* 드롭 위치를 가로 막대(직선)로 표시 — 위/아래 방향 모두 */
+tr.drop-above td{box-shadow:inset 0 2px 0 0 var(--blue)}
+tr.drop-below td{box-shadow:inset 0 -2px 0 0 var(--blue)}
+.cage{position:relative}
+.cage.drop-above::before,.cage.drop-below::after{
+  content:"";position:absolute;left:0;right:0;height:3px;background:var(--blue);
+  border-radius:0;z-index:5;
+}
+.cage.drop-above::before{top:-2px}
+.cage.drop-below::after{bottom:-2px}

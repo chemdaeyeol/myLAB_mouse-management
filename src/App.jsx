@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  FlaskConical, Beaker, Microscope, Users, UserCog, History, GripVertical,
+  Users, UserCog, History, GripVertical, Rat,
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
-  { key: "chd8", label: "CHD8", icon: FlaskConical },
-  { key: "gfap", label: "GFAP x rtTA x 4F2A", icon: Beaker },
-  { key: "behavior", label: "행동실험 · IHC", icon: Microscope },
+  { key: "chd8", label: "Chd8 콜로니", icon: Rat },
+  { key: "gfap", label: "GFAP × rtTA × 4F2A", icon: Rat },
+  { key: "behavior", label: "행동실험 · IHC", icon: Rat },
 ];
 const CAGE_TYPES = {
   mating: { label: "Mating", color: "#0071E3" },
@@ -87,6 +87,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const [editCage, setEditCage] = useState(false);
   const [dragI, setDragI] = useState(null);
   const [overI, setOverI] = useState(null);
+  const [overSide, setOverSide] = useState("above");
   const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type });
   const t = CAGE_TYPES[cage.type] || CAGE_TYPES.other;
 
@@ -109,7 +110,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   }, [mice]);
 
   return (
-    <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") + (dragCage?.isOver ? " dropping" : "")}
+    <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") +
+      (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
         <span className="handle" title="드래그해서 케이지 순서 변경"
@@ -167,13 +169,24 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               const canDrag = !q;
               return (
                 <tr key={m.id}
-                  className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") + (overI === idx && dragI !== idx ? " dropping" : "")}
-                  onDragOver={(e) => { if (!canDrag || dragI === null) return; e.preventDefault(); setOverI(idx); }}
+                  className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
+                    (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "")}
+                  onDragOver={(e) => {
+                    if (!canDrag || dragI === null) return;
+                    e.preventDefault();
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setOverSide(e.clientY < r.top + r.height / 2 ? "above" : "below");
+                    setOverI(idx);
+                  }}
                   onDragLeave={() => setOverI((v) => (v === idx ? null : v))}
                   onDrop={async (e) => {
                     e.preventDefault();
                     if (!canDrag || dragI === null || dragI === idx) { setDragI(null); setOverI(null); return; }
-                    const from = dragI, to = idx; setDragI(null); setOverI(null);
+                    const from = dragI;
+                    let to = overSide === "below" ? idx + 1 : idx;
+                    if (from < to) to -= 1;
+                    setDragI(null); setOverI(null);
+                    if (from === to) return;
                     await persistOrder(mice, from, to, "mc_mice");
                     await ops.reload();
                   }}>
@@ -248,22 +261,38 @@ function DoxPanel({ me }) {
 function NamePicker({ onPick }) {
   const [members, setMembers] = useState([]);
   const [name, setName] = useState("");
-  useEffect(() => { (async () => {
+  const [manage, setManage] = useState(false);
+  const load = async () => {
     const { data } = await supabase.from("mc_members").select("name").order("name");
     if (data) setMembers(data.map((m) => m.name));
-  })(); }, []);
+  };
+  useEffect(() => { load(); }, []);
   const pick = async (n) => {
     const v = n.trim(); if (!v) return;
-    if (!members.includes(v)) await supabase.from("mc_members").insert({ name: v });
+    if (!members.includes(v)) { await supabase.from("mc_members").insert({ name: v }); }
     onPick(v);
+  };
+  const del = async (n) => {
+    if (!confirm(`'${n}' 이름을 목록에서 삭제할까요?`)) return;
+    const { error } = await supabase.from("mc_members").delete().eq("name", n);
+    if (error) { alert("삭제 실패: " + error.message); return; }
+    await load();
   };
   return (
     <div className="namebar">
       <span className="nb-t"><Users size={15} /> 편집하려면 이름을 선택하세요</span>
-      {members.map((m) => <button key={m} className="namechip" onClick={() => pick(m)}>{m}</button>)}
+      {members.map((m) => (
+        <span key={m} className={"namechip" + (manage ? " managing" : "")}>
+          <button className="nc-name" onClick={() => !manage && pick(m)}>{m}</button>
+          {manage && <button className="nc-del" title="이름 삭제" onClick={() => del(m)}><X size={13} /></button>}
+        </span>
+      ))}
       <input className="in" style={{ maxWidth: 150 }} value={name} placeholder="새 이름"
         onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && pick(name)} />
       <button className="btn btn-p" onClick={() => pick(name)} disabled={!name.trim()}>확인</button>
+      {members.length > 0 && (
+        <button className="btn btn-s" onClick={() => setManage((v) => !v)}>{manage ? "완료" : "목록 편집"}</button>
+      )}
     </div>
   );
 }
@@ -276,6 +305,7 @@ export default function App() {
   const [showLog, setShowLog] = useState(false);
   const [cDrag, setCDrag] = useState(null);
   const [cOver, setCOver] = useState(null);
+  const [cSide, setCSide] = useState("above");
   const [cages, cageOps] = useTable("mc_cages", ["grp", "sort"]);
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
   const [logs] = useTable("mc_log", []);
@@ -311,14 +341,14 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       <header className="top">
         <div className="wrap top-in">
           <div>
-            <h1>Mouse Management 현황</h1>
-            <p className="sub">Cage · Mouse list (Live Update)</p>
+            <h1>랩 마우스 콜로니 현황</h1>
+            <p className="sub">케이지 · 개체 실시간 공유 · 누구나 열람하고 업데이트할 수 있어요</p>
           </div>
           <div className="who">
             {me ? (
               <><span className="me">{me}</span>
                 <button className="btn btn-s" onClick={clearName}><UserCog size={14} /> 이름 변경</button></>
-            ) : <span className="me muted">보고 있음</span>}
+            ) : <span className="me muted">열람 중 (편집하려면 이름 선택)</span>}
             <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 기록</button>
           </div>
         </div>
@@ -328,7 +358,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
 
       {showLog && (
         <div className="wrap"><div className="panel logs">
-          <h3>변경 로그</h3>
+          <h3>최근 변경</h3>
           {recentLogs.length === 0 ? <p className="muted">아직 기록이 없어요.</p> :
             recentLogs.map((l) => (
               <div key={l.id} className="logrow">
@@ -374,14 +404,25 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
                 dragCage={{
                   isDragging: cDrag === i,
                   isOver: cOver === i && cDrag !== i,
+                  side: cSide,
                   onDragStart: () => setCDrag(i),
                   onDragEnd: () => { setCDrag(null); setCOver(null); },
-                  onDragOver: (e) => { if (q || cDrag === null) return; e.preventDefault(); setCOver(i); },
+                  onDragOver: (e) => {
+                    if (q || cDrag === null) return;
+                    e.preventDefault();
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setCSide(e.clientY < r.top + r.height / 2 ? "above" : "below");
+                    setCOver(i);
+                  },
                   onDragLeave: () => setCOver((v) => (v === i ? null : v)),
                   onDrop: async (e) => {
                     e.preventDefault();
                     if (q || cDrag === null || cDrag === i) { setCDrag(null); setCOver(null); return; }
-                    const from = cDrag, to = i; setCDrag(null); setCOver(null);
+                    const from = cDrag;
+                    let to = cSide === "below" ? i + 1 : i;
+                    if (from < to) to -= 1;
+                    setCDrag(null); setCOver(null);
+                    if (from === to) return;
                     await persistOrder(gCages, from, to, "mc_cages");
                     await cageOps.reload();
                   },
