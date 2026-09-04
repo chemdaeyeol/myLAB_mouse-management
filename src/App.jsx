@@ -165,7 +165,6 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     const s = q.toLowerCase();
     return mice.filter((m) => [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(s));
   }, [mice, q]);
-  if (q && list.length === 0) return null;
 
   const counts = useMemo(() => {
     let male = 0, female = 0, baby = 0;
@@ -177,6 +176,9 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     });
     return { male, female, baby, total: mice.length };
   }, [mice]);
+
+  // 훅 호출이 모두 끝난 뒤에 조건부 렌더링
+  if (q && list.length === 0) return null;
 
   return (
     <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") +
@@ -380,7 +382,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
-          <span className="stat">케이지 {gCages.length} · 개체 {totalMice}</span>
+          <span className="stat">케이지 {gCages.length} · 마우스 {totalMice}</span>
           <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>
         </div>
 
@@ -428,7 +430,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-       마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
+        마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
       </div></footer>
     </div>
   );
