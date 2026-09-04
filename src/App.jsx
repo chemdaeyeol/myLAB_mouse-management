@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  Users, UserCog, History, GripVertical, Rat,
+  History, GripVertical, Rat,
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
@@ -21,8 +21,6 @@ const CAGE_TYPES = {
   other: { label: "기타", color: "#86868B" },
 };
 const DOX_STATUS = { 완료: "#1D8C4B", 진행중: "#C2610B", 예정: "#98989D" };
-const NAME_KEY = "mc_member_name";
-const readName = () => { try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; } };
 
 // 배열을 from → to 로 옮기고, sort 값을 0..n 으로 다시 매겨 저장
 async function persistOrder(list, from, to, table) {
@@ -145,6 +143,15 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
 
 function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const confirm = useConfirm();
+  const deleteCage = async () => {
+    const ok = await confirm({
+      title: "케이지를 삭제할까요?",
+      body: `${cage.label} · 소속 개체 ${mice.length}마리가 함께 삭제됩니다.`,
+    });
+    if (ok) await cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
+    return ok;
+  };
+  const cageSwipe = useSwipeDelete({ onDelete: deleteCage, threshold: 130, disabled: !!q });
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
@@ -174,7 +181,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
 
   return (
     <div className={"cage" + (dragCage?.isDragging ? " dragging" : "") +
-      (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
+      (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "") +
+      (cageSwipe.dx !== 0 ? " swiping" : "") + (cageSwipe.armed ? " armed" : "")}
+      style={cageSwipe.dx ? { transform: `translateX(${cageSwipe.dx}px)` } : undefined}
+      {...cageSwipe.bind}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
         <span className="handle" title="드래그해서 케이지 순서 변경"
@@ -200,10 +210,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             <span className="cage-actions">
               <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
               <button className="iconbtn danger" title="케이지 삭제"
-                onClick={async () => {
-                  const ok = await confirm({ title: "케이지를 삭제할까요?", body: `${cage.label} · 소속 개체 ${mice.length}마리가 함께 삭제됩니다.` });
-                  if (ok) cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
-                }}><Trash2 size={14} /></button>
+                onClick={deleteCage}><Trash2 size={14} /></button>
               <button className="iconbtn" onClick={() => setOpen((v) => !v)}>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
             </span>
           </>
@@ -284,52 +291,11 @@ function DoxPanel({ me }) {
 }
 
 /* ---------------- name gate ---------------- */
-function NamePicker({ onPick }) {
-  const confirm = useConfirm();
-  const [members, setMembers] = useState([]);
-  const [name, setName] = useState("");
-  const [manage, setManage] = useState(false);
-  const load = async () => {
-    const { data } = await supabase.from("mc_members").select("name").order("name");
-    if (data) setMembers(data.map((m) => m.name));
-  };
-  useEffect(() => { load(); }, []);
-  const pick = async (n) => {
-    const v = n.trim(); if (!v) return;
-    if (!members.includes(v)) { await supabase.from("mc_members").insert({ name: v }); }
-    onPick(v);
-  };
-  const del = async (n) => {
-    const ok = await confirm({ title: "이름을 삭제할까요?", body: `'${n}' 을 목록에서 지웁니다.` });
-    if (!ok) return;
-    const { error } = await supabase.from("mc_members").delete().eq("name", n);
-    if (error) { alert("삭제 실패: " + error.message); return; }
-    await load();
-  };
-  return (
-    <div className="namebar">
-      <span className="nb-t"><Users size={15} /> 편집하려면 이름을 선택하세요</span>
-      {members.map((m) => (
-        <span key={m} className={"namechip" + (manage ? " managing" : "")}>
-          <button className="nc-name" onClick={() => !manage && pick(m)}>{m}</button>
-          {manage && <button className="nc-del" title="이름 삭제" onClick={() => del(m)}><X size={13} /></button>}
-        </span>
-      ))}
-      <input className="in" style={{ maxWidth: 150 }} value={name} placeholder="새 이름"
-        onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && pick(name)} />
-      <button className="btn btn-p" onClick={() => pick(name)} disabled={!name.trim()}>확인</button>
-      {members.length > 0 && (
-        <button className="btn btn-s" onClick={() => setManage((v) => !v)}>{manage ? "완료" : "목록 편집"}</button>
-      )}
-    </div>
-  );
-}
-
 /* ---------------- app ---------------- */
 function AppInner() {
   const [grp, setGrp] = useState("chd8");
   const [q, setQ] = useState("");
-  const [me, setMe] = useState(readName);
+  const me = "";
   const [showLog, setShowLog] = useState(false);
   const [cDrag, setCDrag] = useState(null);
   const [cOver, setCOver] = useState(null);
@@ -338,8 +304,6 @@ function AppInner() {
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
   const [logs] = useTable("mc_log", []);
 
-  const saveName = (n) => { try { localStorage.setItem(NAME_KEY, n); } catch { /* noop */ } setMe(n); };
-  const clearName = () => { try { localStorage.removeItem(NAME_KEY); } catch { /* noop */ } setMe(""); };
 
   if (!hasConfig) {
     return <div className="cfg"><h1>환경 변수가 필요해요</h1>
@@ -369,20 +333,15 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       <header className="top">
         <div className="wrap top-in">
           <div>
-            <h1>Mouse Management</h1>
+            <h1>Mouse Colony</h1>
             <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
-            {me ? (
-              <><span className="me">{me}</span>
-                <button className="btn btn-s" onClick={clearName}><UserCog size={14} /> 이름 변경</button></>
-            ) : <span className="me muted">너 지금 보고있구나</span>}
             <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 기록</button>
           </div>
         </div>
       </header>
 
-      {!me && <div className="wrap"><NamePicker onPick={saveName} /></div>}
 
       {showLog && (
         <div className="wrap"><div className="panel logs">
@@ -390,7 +349,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           {recentLogs.length === 0 ? <p className="muted">아직 기록이 없어요.</p> :
             recentLogs.map((l) => (
               <div key={l.id} className="logrow">
-                <span className="lwho">{l.who}</span>
+                <span className="lwho">{l.who || "—"}</span>
                 <span className="lact">{l.action}</span>
                 <span className="ltar">{l.target}</span>
                 <span className="ltime mono">{(l.created_at || "").slice(5, 16).replace("T", " ")}</span>
@@ -419,8 +378,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
-          <span className="stat">케이지 {gCages.length} · 개체 {totalMice}</span>
-          <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>
+          <span className="stat">Cage {gCages.length} · Mouse {totalMice}</span>
+          <button className="btn btn-p" onClick={addCage}><Plus size={15} /> Add Cage</button>
         </div>
 
         {grp === "gfap" && <DoxPanel me={me} />}
@@ -459,7 +418,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-        마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
+       마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
       </div></footer>
     </div>
   );

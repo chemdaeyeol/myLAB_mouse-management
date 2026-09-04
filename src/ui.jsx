@@ -43,7 +43,16 @@ export function ConfirmProvider({ children }) {
    포인터 이벤트라 마우스·트랙패드·터치 모두 동작. */
 export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
   const [dx, setDx] = useState(0);
+  const [outside, setOutside] = useState(false);
   const st = useRef(null);
+
+  // 본문 패널(.app) 바깥(좌우 여백)으로 끌었는지 판정
+  const isOutsidePanel = (clientX) => {
+    const panel = document.querySelector(".app");
+    if (!panel) return false;
+    const r = panel.getBoundingClientRect();
+    return clientX < r.left + 4 || clientX > r.right - 4;
+  };
 
   const onPointerDown = (e) => {
     if (disabled || e.button === 1 || e.button === 2) return;
@@ -59,20 +68,22 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
       e.currentTarget.setPointerCapture?.(e.pointerId);
     }
     setDx(mx);
+    setOutside(isOutsidePanel(e.clientX));
   };
   const finish = async () => {
-    const s = st.current; const moved = dx;
+    const s = st.current; const moved = dx; const wasOutside = outside;
     st.current = null;
-    if (s?.active && Math.abs(moved) >= threshold) {
-      setDx(moved > 0 ? 320 : -320);
+    setOutside(false);
+    if (s?.active && (Math.abs(moved) >= threshold || wasOutside)) {
+      setDx(moved > 0 ? 340 : -340);
       const ok = await onDelete();
       if (!ok) setDx(0);          // 취소하면 제자리로
     } else setDx(0);
   };
 
-  const armed = Math.abs(dx) >= threshold;
+  const armed = Math.abs(dx) >= threshold || outside;
   return {
-    dx, armed,
+    dx, armed, outside,
     bind: {
       onPointerDown, onPointerMove,
       onPointerUp: finish, onPointerCancel: () => { st.current = null; setDx(0); },
