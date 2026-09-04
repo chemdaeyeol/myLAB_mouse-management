@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
+import { ConfirmProvider, useConfirm, useSwipeDelete } from "./ui.jsx";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
@@ -81,7 +82,69 @@ function MouseForm({ init, cage, onSave, onCancel }) {
   );
 }
 
+function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
+  overI, setOverI, overSide, setOverSide, mice, setEditing }) {
+  const confirm = useConfirm();
+  const doDelete = async () => {
+    const ok = await confirm({
+      title: "개체를 삭제할까요?",
+      body: `${cage.label} · ${m.label || "이름 없음"}`,
+    });
+    if (ok) await ops.remove(m.id, me, `${cage.label} / ${m.label}`);
+    return ok;
+  };
+  const { dx, armed, bind } = useSwipeDelete({ onDelete: doDelete, disabled: !canDrag });
+
+  return (
+    <tr
+      className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
+        (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "") +
+        (dx !== 0 ? " swiping" : "") + (armed ? " armed" : "")}
+      style={dx ? { transform: `translateX(${dx}px)` } : undefined}
+      {...bind}
+      onDragOver={(e) => {
+        if (!canDrag || dragI === null) return;
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        setOverSide(e.clientY < r.top + r.height / 2 ? "above" : "below");
+        setOverI(idx);
+      }}
+      onDragLeave={() => setOverI((v) => (v === idx ? null : v))}
+      onDrop={async (e) => {
+        e.preventDefault();
+        if (!canDrag || dragI === null || dragI === idx) { setDragI(null); setOverI(null); return; }
+        const from = dragI;
+        let to = overSide === "below" ? idx + 1 : idx;
+        if (from < to) to -= 1;
+        setDragI(null); setOverI(null);
+        if (from === to) return;
+        await persistOrder(mice, from, to, "mc_mice");
+        await ops.reload();
+      }}>
+      <td className="hcell">
+        {canDrag && (
+          <span className="handle" title="드래그해서 순서 변경" draggable
+            onDragStart={() => setDragI(idx)} onDragEnd={() => { setDragI(null); setOverI(null); }}>
+            <GripVertical size={14} />
+          </span>
+        )}
+      </td>
+      <td className="mono strong">{m.label}</td>
+      <td>{m.g1 && <span className="gchip">{m.g1}</span>}</td>
+      <td>{m.g2 && <span className="gchip">{m.g2}</span>}</td>
+      <td>{m.g3 && <span className="gchip">{m.g3}</span>}</td>
+      <td className="mono">{m.dob}{ageBadge(w) && <span className="age">{ageBadge(w)}</span>}</td>
+      <td className="note">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
+      <td className="row-actions">
+        <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}><Pencil size={13} /></button>
+        <button className="iconbtn danger" title="삭제" onClick={doDelete}><Trash2 size={13} /></button>
+      </td>
+    </tr>
+  );
+}
+
 function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
@@ -137,7 +200,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             <span className="cage-actions">
               <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
               <button className="iconbtn danger" title="케이지 삭제"
-                onClick={() => { if (confirm(`케이지 ${cage.label}과 소속 개체를 모두 삭제할까요?`)) cageOps.remove(cage.id, me, `케이지 ${cage.label}`); }}><Trash2 size={14} /></button>
+                onClick={async () => {
+                  const ok = await confirm({ title: "케이지를 삭제할까요?", body: `${cage.label} · 소속 개체 ${mice.length}마리가 함께 삭제됩니다.` });
+                  if (ok) cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
+                }}><Trash2 size={14} /></button>
               <button className="iconbtn" onClick={() => setOpen((v) => !v)}>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
             </span>
           </>
@@ -168,50 +234,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               const isBaby = (m.label || "").toUpperCase().startsWith("BABY");
               const canDrag = !q;
               return (
-                <tr key={m.id}
-                  className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
-                    (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "")}
-                  onDragOver={(e) => {
-                    if (!canDrag || dragI === null) return;
-                    e.preventDefault();
-                    const r = e.currentTarget.getBoundingClientRect();
-                    setOverSide(e.clientY < r.top + r.height / 2 ? "above" : "below");
-                    setOverI(idx);
-                  }}
-                  onDragLeave={() => setOverI((v) => (v === idx ? null : v))}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    if (!canDrag || dragI === null || dragI === idx) { setDragI(null); setOverI(null); return; }
-                    const from = dragI;
-                    let to = overSide === "below" ? idx + 1 : idx;
-                    if (from < to) to -= 1;
-                    setDragI(null); setOverI(null);
-                    if (from === to) return;
-                    await persistOrder(mice, from, to, "mc_mice");
-                    await ops.reload();
-                  }}>
-                  <td className="hcell">
-                    {canDrag && (
-                      <span className="handle" title="드래그해서 순서 변경" draggable
-                        onDragStart={() => setDragI(idx)} onDragEnd={() => { setDragI(null); setOverI(null); }}>
-                        <GripVertical size={14} />
-                      </span>
-                    )}
-                  </td>
-                  <td className="mono strong">{m.label}</td>
-                  <td>{m.g1 && <span className="gchip">{m.g1}</span>}</td>
-                  <td>{m.g2 && <span className="gchip">{m.g2}</span>}</td>
-                  <td>{m.g3 && <span className="gchip">{m.g3}</span>}</td>
-                  <td className="mono">
-                    {m.dob}{ageBadge(w) && <span className="age">{ageBadge(w)}</span>}
-                  </td>
-                  <td className="note">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
-                  <td className="row-actions">
-                    <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}><Pencil size={13} /></button>
-                    <button className="iconbtn danger" title="삭제"
-                      onClick={() => { if (confirm("이 개체를 삭제할까요?")) ops.remove(m.id, me, `${cage.label} / ${m.label}`); }}><Trash2 size={13} /></button>
-                  </td>
-                </tr>
+                <MouseRow key={m.id} m={m} idx={idx} cage={cage} ops={ops} me={me} canDrag={canDrag}
+                  isBaby={isBaby} w={w}
+                  dragI={dragI} setDragI={setDragI} overI={overI} setOverI={setOverI}
+                  overSide={overSide} setOverSide={setOverSide} mice={mice} setEditing={setEditing} />
               );
             })}
             {editing === "new" && (
@@ -259,6 +285,7 @@ function DoxPanel({ me }) {
 
 /* ---------------- name gate ---------------- */
 function NamePicker({ onPick }) {
+  const confirm = useConfirm();
   const [members, setMembers] = useState([]);
   const [name, setName] = useState("");
   const [manage, setManage] = useState(false);
@@ -273,7 +300,8 @@ function NamePicker({ onPick }) {
     onPick(v);
   };
   const del = async (n) => {
-    if (!confirm(`'${n}' 이름을 목록에서 삭제할까요?`)) return;
+    const ok = await confirm({ title: "이름을 삭제할까요?", body: `'${n}' 을 목록에서 지웁니다.` });
+    if (!ok) return;
     const { error } = await supabase.from("mc_members").delete().eq("name", n);
     if (error) { alert("삭제 실패: " + error.message); return; }
     await load();
@@ -298,7 +326,7 @@ function NamePicker({ onPick }) {
 }
 
 /* ---------------- app ---------------- */
-export default function App() {
+function AppInner() {
   const [grp, setGrp] = useState("chd8");
   const [q, setQ] = useState("");
   const [me, setMe] = useState(readName);
@@ -349,7 +377,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               <><span className="me">{me}</span>
                 <button className="btn btn-s" onClick={clearName}><UserCog size={14} /> 이름 변경</button></>
             ) : <span className="me muted">너 지금 보고있구나</span>}
-            <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 로그</button>
+            <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 기록</button>
           </div>
         </div>
       </header>
@@ -435,4 +463,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </div></footer>
     </div>
   );
+}
+
+export default function App() {
+  return <ConfirmProvider><AppInner /></ConfirmProvider>;
 }

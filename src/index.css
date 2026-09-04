@@ -225,3 +225,30 @@ tr.drop-below td{box-shadow:inset 0 -2px 0 0 var(--blue)}
 }
 .cage.drop-above::before{top:-2px}
 .cage.drop-below::after{bottom:-2px}
+
+/* ---------- 확인 팝업 ---------- */
+.modal-back{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(30,26,22,.34);backdrop-filter:blur(6px);padding:20px;
+  animation:fadeIn .14s ease}
+.modal{background:var(--surface);border-radius:18px;padding:26px 24px 20px;max-width:360px;width:100%;
+  text-align:center;box-shadow:0 24px 60px -12px rgba(60,50,40,.4);animation:pop .16s cubic-bezier(.2,.9,.3,1.1)}
+.modal-ic{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;background:var(--bg);color:var(--t2)}
+.modal-ic.danger{background:#FFECEC;color:#D70015}
+.modal-title{margin:0;font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--t1)}
+.modal-body{margin:8px 0 0;font-size:14px;color:var(--t2);word-break:break-all}
+.modal-actions{display:flex;gap:8px;margin-top:20px}
+.modal-actions .btn{flex:1;padding:10px 16px}
+.btn-danger{background:#D70015;color:#fff}
+.btn-danger:hover{background:#B3000F}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 스와이프해서 삭제 ---------- */
+.mtable tbody tr.swiping{position:relative;z-index:2;cursor:grabbing;
+  box-shadow:0 6px 20px -10px rgba(60,50,40,.45)}
+.mtable tbody tr.swiping > td{background:var(--surface)}
+.mtable tbody tr.armed > td{background:#FFF2F2}
+.mtable tbody tr.armed > td:first-child{box-shadow:inset 3px 0 0 #D70015}
+.mtable tbody tr.armed > td:last-child{box-shadow:inset -3px 0 0 #D70015}
+.mtable tbody tr:not(.swiping){transition:transform .18s cubic-bezier(.2,.9,.3,1)}
