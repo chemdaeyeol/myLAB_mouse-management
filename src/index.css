@@ -302,3 +302,8 @@ body.dragging-row::after{content:none}
 .cage.done .cage-title{color:var(--t2)}
 .cage.done .cage-head{background:var(--surface-2)}
 .done-section{margin-top:26px;padding-top:22px;border-top:1px solid var(--sep-soft)}
+
+/* 열람 전용일 때 커서 원복 */
+.mtable tbody tr{cursor:default}
+body.can-edit .mtable tbody tr{cursor:grab}
+body.can-edit .mtable tbody tr:active{cursor:grabbing}

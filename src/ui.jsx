@@ -33,6 +33,7 @@ export function ConfirmProvider({ children }) {
             <h3 className="modal-title">{ask.title}</h3>
             {ask.body && <p className="modal-body">{ask.body}</p>}
             <input className="in" style={{ marginTop: 16, textAlign: "center" }} autoFocus
+              type={ask.password ? "password" : "text"}
               placeholder={ask.placeholder || ""} value={ask.value}
               onChange={(e) => setAsk({ ...ask, value: e.target.value })}
               onKeyDown={(e) => {

@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat, CheckCircle2, RotateCcw,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock,
 } from "lucide-react";
-import { hasConfig, supabase } from "./supabaseClient";
+import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
 import { ConfirmProvider, useConfirm, usePrompt } from "./ui.jsx";
 
@@ -62,6 +62,7 @@ function ageWeeks(dobStr) {
 const AGE_UNITS = ["w", "m", "y"];
 const AGE_KEY = "mc_age_unit";
 export const AgeUnitCtx = createContext({ unit: "m", cycle: () => {} });
+export const EditCtx = createContext(false);
 
 const ageBadge = (w, unit = "m") => {
   if (w == null) return null;
@@ -104,6 +105,7 @@ function MouseForm({ init, cage, onSave, onCancel }) {
 
 function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
+  const canEdit = useContext(EditCtx);
   const isDragging = drag?.idx === idx;
   const isTarget = drag && drag.mode === "move" && drag.overIdx === idx && drag.idx !== idx;
 
@@ -117,7 +119,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
         transform: `translate(${drag.dx}px, ${drag.dy}px) scale(${drag.armed ? 0.97 : 1})`,
       } : undefined}
       data-row={idx} data-cage={cage.id}
-      onPointerDown={(e) => canDrag && onGrab(e, idx)}>
+      onPointerDown={(e) => canEdit && canDrag && onGrab(e, idx)}>
       <td className="mono strong c">{m.label}</td>
       <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
@@ -134,10 +136,12 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       </td>
       <td className="note c">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
       <td className="row-actions">
-        <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}
-          onPointerDown={(e) => e.stopPropagation()}><Pencil size={13} /></button>
-        <button className="iconbtn danger" title="삭제" onClick={() => confirmDelete(m)}
-          onPointerDown={(e) => e.stopPropagation()}><Trash2 size={13} /></button>
+        {canEdit && <>
+          <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}
+            onPointerDown={(e) => e.stopPropagation()}><Pencil size={13} /></button>
+          <button className="iconbtn danger" title="삭제" onClick={() => confirmDelete(m)}
+            onPointerDown={(e) => e.stopPropagation()}><Trash2 size={13} /></button>
+        </>}
       </td>
     </tr>
   );
@@ -145,6 +149,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
 
 function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const confirm = useConfirm();
+  const canEdit = useContext(EditCtx);
   const deleteCage = async () => {
     const ok = await confirm({
       title: "케이지를 삭제할까요?",
@@ -275,8 +280,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
-        <span className="handle" title="드래그해서 케이지 순서 변경"
-          draggable onDragStart={dragCage?.onDragStart} onDragEnd={dragCage?.onDragEnd}><GripVertical size={15} /></span>
+        {canEdit && (
+          <span className="handle" title="드래그해서 케이지 순서 변경"
+            draggable onDragStart={dragCage?.onDragStart} onDragEnd={dragCage?.onDragEnd}><GripVertical size={15} /></span>
+        )}
         <span className="ctype" style={{ background: t.color }}>{t.label}</span>
         {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
         {editCage ? (
@@ -297,16 +304,17 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-actions">
-              {cage.grp === "behavior" && (
+              {canEdit && cage.grp === "behavior" && (
                 <button className="iconbtn" title={cage.done ? "완료 취소" : "실험 완료로 표시"}
                   onClick={() => cageOps.update(cage.id, { done: !cage.done, done_at: cage.done ? null : new Date().toISOString() },
                     me, `케이지 ${cage.label} ${cage.done ? "완료 취소" : "실험 완료"}`)}>
                   {cage.done ? <RotateCcw size={14} /> : <CheckCircle2 size={14} />}
                 </button>
               )}
-              <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
-              <button className="iconbtn danger" title="케이지 삭제"
-                onClick={deleteCage}><Trash2 size={14} /></button>
+              {canEdit && <>
+                <button className="iconbtn" title="케이지 수정" onClick={() => setEditCage(true)}><Pencil size={14} /></button>
+                <button className="iconbtn danger" title="케이지 삭제" onClick={deleteCage}><Trash2 size={14} /></button>
+              </>}
               <button className="iconbtn" onClick={() => setOpen((v) => !v)}>{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
             </span>
           </>
@@ -349,8 +357,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         </table>
       )}
 
-      {open && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
+      {open && canEdit && editing !== "new" && (
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
     </div>
   );
@@ -358,11 +366,12 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
 
 /* ---------------- DOX schedule ---------------- */
 function DoxPanel({ me }) {
+  const canEdit = useContext(EditCtx);
   const [rows, ops] = useTable("mc_dox", ["sort"]);
   const [open, setOpen] = useState(false);
   const cur = rows.find((r) => r.status === "진행중");
   const done = rows.filter((r) => r.status === "완료").length;
-  const cycle = (r) => ops.update(r.id, { status: r.status === "예정" ? "진행중" : r.status === "진행중" ? "완료" : "예정" }, me, `DOX ${r.dates}`);
+  const cycle = (r) => canEdit && ops.update(r.id, { status: r.status === "예정" ? "진행중" : r.status === "진행중" ? "완료" : "예정" }, me, `DOX ${r.dates}`);
   return (
     <div className="panel dox">
       <div className="panel-head">
@@ -396,6 +405,23 @@ function AppInner() {
   const [cSide, setCSide] = useState("above");
   const askText = usePrompt();
   const [showDone, setShowDone] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  useEffect(() => {
+    if (!hasConfig) return;
+    supabase.auth.getSession().then(({ data }) => setCanEdit(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setCanEdit(!!sess));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("can-edit", canEdit);
+  }, [canEdit]);
+  const toggleEdit = async () => {
+    if (canEdit) { await supabase.auth.signOut(); return; }
+    const pw = await askText({ title: "편집 모드", body: "관리자 비밀번호를 입력하세요.", placeholder: "비밀번호", okText: "확인", password: true });
+    if (!pw) return;
+    const { error } = await supabase.auth.signInWithPassword({ email: OWNER_EMAIL, password: pw });
+    if (error) alert("비밀번호가 올바르지 않아요.");
+  };
   const [ageUnit, setAgeUnit] = useState(() => {
     const v = (() => { try { return localStorage.getItem(AGE_KEY); } catch { return null; } })();
     return AGE_UNITS.includes(v) ? v : "m";
@@ -442,6 +468,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
 
   return (
     <AgeUnitCtx.Provider value={{ unit: ageUnit, cycle: cycleAge }}>
+    <EditCtx.Provider value={canEdit}>
     <div className="app">
       <header className="top">
         <div className="wrap top-in">
@@ -450,6 +477,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
             <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
+            <button className={"btn " + (canEdit ? "btn-p" : "btn-s")} onClick={toggleEdit}>
+              {canEdit ? <><Unlock size={14} /> 편집 중</> : <><Lock size={14} /> 편집</>}
+            </button>
             <button className="btn btn-s" onClick={() => setShowLog((v) => !v)}><History size={14} /> 변경 기록</button>
           </div>
         </div>
@@ -495,7 +525,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
             케이지 {gCages.length} · 마우스 {totalMice}
             {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
           </span>
-          <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>
+          {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
         </div>
 
         {grp === "gfap" && <DoxPanel me={me} />}
@@ -555,6 +585,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
         마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
       </div></footer>
     </div>
+    </EditCtx.Provider>
     </AgeUnitCtx.Provider>
   );
 }
