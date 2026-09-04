@@ -2,7 +2,7 @@
 
 :root{
   --bg:#F5F5F7; --surface:#FFFFFF; --surface-2:#FBFBFD;
-  --page:#1D1D1F; --page-2:#000000;
+  --sky-1:#8AACD8; --sky-2:#6D8FBE; --sky-3:#41618E;
   --t1:#1D1D1F; --t2:#6E6E73; --t3:#98989D;
   --sep:#D2D2D7; --sep-soft:#EBEBED;
   --blue:#0071E3; --blue-d:#0060C0; --blue-soft:#EAF3FE;
@@ -175,16 +175,26 @@ tr:hover .row-actions{opacity:1}
 /* ---------- 좌우 여백(무대) + 본문 컨테이너 ---------- */
 body{
   background:
-    radial-gradient(120% 80% at 50% -10%, #2C2C2E 0%, var(--page) 42%, var(--page-2) 100%)
+    linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 46%, var(--sky-3) 100%)
     fixed;
 }
+/* 왼쪽 위 여백의 애플 글로우 */
+body::before{
+  content:"";position:fixed;z-index:0;pointer-events:none;
+  left:max(6px, calc(50vw - 760px));top:14px;
+  width:clamp(150px, 15vw, 260px);aspect-ratio:1;
+  background:url('/apple-glow.png') center/contain no-repeat;
+  opacity:.95;
+}
+@media (max-width:1360px){ body::before{display:none} }
 .app{
-  max-width:1240px;margin:0 auto;background:var(--bg);
+  position:relative;z-index:1;
+  max-width:1180px;margin:0 auto;background:var(--bg);
   min-height:100vh;overflow:hidden;
-  box-shadow:0 0 0 1px rgba(255,255,255,.06), 0 30px 90px -30px rgba(0,0,0,.8);
+  box-shadow:0 0 0 1px rgba(255,255,255,.28), 0 30px 80px -28px rgba(20,40,70,.55);
 }
 @media (min-width:1320px){
-  .app{margin:26px auto;border-radius:22px;min-height:calc(100vh - 52px)}
+  .app{margin:34px auto;border-radius:22px;min-height:calc(100vh - 68px)}
 }
 .foot{background:var(--surface);margin-top:44px}
 
