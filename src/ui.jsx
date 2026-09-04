@@ -146,3 +146,15 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
   const armed = Math.hypot(dx, dy) >= threshold || outside;
   return { dx, dy, armed, outside, bind: { onPointerDown } };
 }
+
+/* 본문 패널 바깥(여백/화면 가장자리)인지 판정 — 삭제 존 */
+export function isOutsidePanel(x, y) {
+  const panel = document.querySelector(".app");
+  const vw = window.innerWidth, vh = window.innerHeight;
+  if (panel) {
+    const r = panel.getBoundingClientRect();
+    const sideMargin = r.left > 12 || r.right < vw - 12;
+    if (sideMargin && (x < r.left + 18 || x > r.right - 18)) return true;
+  }
+  return x < 30 || x > vw - 30 || y < 30 || y > vh - 30;
+}

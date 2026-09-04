@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
-import { ConfirmProvider, useConfirm, usePrompt, isOutsidePanel } from "./ui.jsx";
+import { ConfirmProvider, useConfirm, usePrompt } from "./ui.jsx";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
@@ -21,6 +21,18 @@ const CAGE_TYPES = {
   other: { label: "기타", color: "#86868B" },
 };
 const DOX_STATUS = { 완료: "#1D8C4B", 진행중: "#C2610B", 예정: "#98989D" };
+
+// 본문 패널 바깥(여백/화면 가장자리)인지 — 여기로 던지면 삭제
+function isOutsidePanel(x, y) {
+  const panel = document.querySelector(".app");
+  const vw = window.innerWidth, vh = window.innerHeight;
+  if (panel) {
+    const r = panel.getBoundingClientRect();
+    const sideMargin = r.left > 12 || r.right < vw - 12;
+    if (sideMargin && (x < r.left + 18 || x > r.right - 18)) return true;
+  }
+  return x < 30 || x > vw - 30 || y < 30 || y > vh - 30;
+}
 
 // 배열을 from → to 로 옮기고, sort 값을 0..n 으로 다시 매겨 저장
 async function persistOrder(list, from, to, table) {
@@ -276,7 +288,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <table className="mtable">
           <thead>
             <tr>
-              <th className="c" style={{ width: "11%" }}>개체</th>
+              <th className="c" style={{ width: "11%" }}>Mouse</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
@@ -309,7 +321,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       )}
 
       {open && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
       )}
     </div>
   );
