@@ -1,11 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
   History, GripVertical, Rat,
 } from "lucide-react";
 import { hasConfig, supabase } from "./supabaseClient";
 import { useTable } from "./db";
-import { ConfirmProvider, useConfirm, usePrompt, useSwipeDelete } from "./ui.jsx";
+import { ConfirmProvider, useConfirm, usePrompt, isOutsidePanel } from "./ui.jsx";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
@@ -71,9 +71,9 @@ function MouseForm({ init, cage, onSave, onCancel }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <tr className="form-row">
-      <td colSpan={8}>
+      <td colSpan={7}>
         <div className="mform">
-          <Field label="개체"><input className="in" value={f.label} onChange={set("label")} placeholder="M1 / F5 / baby" autoFocus /></Field>
+          <Field label="Mouse"><input className="in" value={f.label} onChange={set("label")} placeholder="M1 / F5 / baby" autoFocus /></Field>
           <Field label={cage.g1_label || "G1"}><input className="in" value={f.g1} onChange={set("g1")} placeholder="HM/HT/WT/O/X" /></Field>
           <Field label={cage.g2_label || "G2"}><input className="in" value={f.g2} onChange={set("g2")} placeholder="O/X/HT" /></Field>
           <Field label={cage.g3_label || "G3"}><input className="in" value={f.g3} onChange={set("g3")} placeholder="O/X/HM" /></Field>
@@ -90,54 +90,22 @@ function MouseForm({ init, cage, onSave, onCancel }) {
   );
 }
 
-function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
-  overI, setOverI, overSide, setOverSide, mice, setEditing }) {
-  const confirm = useConfirm();
+function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
-  const doDelete = async () => {
-    const ok = await confirm({
-      title: "Mouse를 삭제할까요?",
-      body: `${cage.label} · ${m.label || "이름 없음"}`,
-    });
-    if (ok) await ops.remove(m.id, me, `${cage.label} / ${m.label}`);
-    return ok;
-  };
-  const { dx, dy, armed, bind } = useSwipeDelete({ onDelete: doDelete, disabled: !canDrag });
+  const isDragging = drag?.idx === idx;
+  const isTarget = drag && drag.mode === "move" && drag.overIdx === idx && drag.idx !== idx;
 
   return (
     <tr
-      className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
-        (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "") +
-        (dx !== 0 || dy !== 0 ? " swiping" : "") + (armed ? " armed" : "")}
-      style={(dx || dy) ? { transform: `translate(${dx}px, ${dy}px) scale(${armed ? 0.97 : 1})` } : undefined}
-      {...bind}
-      onDragOver={(e) => {
-        if (!canDrag || dragI === null) return;
-        e.preventDefault();
-        const r = e.currentTarget.getBoundingClientRect();
-        setOverSide(e.clientY < r.top + r.height / 2 ? "above" : "below");
-        setOverI(idx);
-      }}
-      onDragLeave={() => setOverI((v) => (v === idx ? null : v))}
-      onDrop={async (e) => {
-        e.preventDefault();
-        if (!canDrag || dragI === null || dragI === idx) { setDragI(null); setOverI(null); return; }
-        const from = dragI;
-        let to = overSide === "below" ? idx + 1 : idx;
-        if (from < to) to -= 1;
-        setDragI(null); setOverI(null);
-        if (from === to) return;
-        await persistOrder(mice, from, to, "mc_mice");
-        await ops.reload();
-      }}>
-      <td className="hcell">
-        {canDrag && (
-          <span className="handle" title="드래그해서 순서 변경" draggable
-            onDragStart={() => setDragI(idx)} onDragEnd={() => { setDragI(null); setOverI(null); }}>
-            <GripVertical size={14} />
-          </span>
-        )}
-      </td>
+      className={(isBaby ? "baby" : "") +
+        (isDragging ? " swiping" : "") +
+        (isDragging && drag.mode === "delete" ? " armed" : "") +
+        (isTarget ? (drag.side === "above" ? " drop-above" : " drop-below") : "")}
+      style={isDragging ? {
+        transform: `translate(${drag.dx}px, ${drag.dy}px) scale(${drag.mode === "delete" ? 0.97 : 1})`,
+      } : undefined}
+      data-row={idx} data-cage={cage.id}
+      onPointerDown={(e) => canDrag && onGrab(e, idx)}>
       <td className="mono strong c">{m.label}</td>
       <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
@@ -154,8 +122,10 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
       </td>
       <td className="note c">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
       <td className="row-actions">
-        <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}><Pencil size={13} /></button>
-        <button className="iconbtn danger" title="삭제" onClick={doDelete}><Trash2 size={13} /></button>
+        <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}
+          onPointerDown={(e) => e.stopPropagation()}><Pencil size={13} /></button>
+        <button className="iconbtn danger" title="삭제" onClick={() => confirmDelete(m)}
+          onPointerDown={(e) => e.stopPropagation()}><Trash2 size={13} /></button>
       </td>
     </tr>
   );
@@ -174,9 +144,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
-  const [dragI, setDragI] = useState(null);
-  const [overI, setOverI] = useState(null);
-  const [overSide, setOverSide] = useState("above");
+  const [drag, setDrag] = useState(null); // {idx,dx,dy,mode,overIdx,side}
+  const dragRef = useRef(null);
   const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type });
   const t = CAGE_TYPES[cage.type] || CAGE_TYPES.other;
 
@@ -196,6 +165,74 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     });
     return { male, female, baby, total: mice.length };
   }, [mice]);
+
+  const confirmDelete = async (mouse) => {
+    const ok = await confirm({
+      title: "Mouse를 삭제할까요?",
+      body: `${cage.label} · ${mouse.label || "이름 없음"}`,
+    });
+    if (ok) await ops.remove(mouse.id, me, `${cage.label} / ${mouse.label}`);
+    return ok;
+  };
+
+  // 행 아무 곳이나 잡아서: 위아래로 옮기면 순서 변경 / 멀리 던지면 삭제
+  const onGrab = (e, idx) => {
+    if (e.button === 1 || e.button === 2) return;
+    if (e.target.closest("button,input,select,textarea,a")) return;
+    const st = { idx, x: e.clientX, y: e.clientY, active: false, mode: "move", overIdx: null, side: "above" };
+    dragRef.current = st;
+
+    const move = (ev) => {
+      const d = dragRef.current; if (!d) return;
+      const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
+      if (!d.active) {
+        if (Math.hypot(dx, dy) < 8) return;
+        d.active = true;
+        document.body.classList.add("dragging-row");
+      }
+      ev.preventDefault();
+      const far = isOutsidePanel(ev.clientX, ev.clientY) || Math.abs(dx) > 150;
+      d.mode = far ? "delete" : "move";
+      d.overIdx = null;
+      if (!far) {
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const tr = el && el.closest("tr[data-row]");
+        if (tr && tr.dataset.cage === cage.id) {
+          const ti = Number(tr.dataset.row);
+          const r = tr.getBoundingClientRect();
+          d.overIdx = ti;
+          d.side = ev.clientY < r.top + r.height / 2 ? "above" : "below";
+        }
+      }
+      setDrag({ idx: d.idx, dx, dy, mode: d.mode, overIdx: d.overIdx, side: d.side });
+    };
+
+    const up = async () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      const d = dragRef.current; dragRef.current = null;
+      document.body.classList.remove("dragging-row");
+      if (!d || !d.active) { setDrag(null); return; }
+
+      if (d.mode === "delete") {
+        setDrag(null);
+        await confirmDelete(list[d.idx]);
+        return;
+      }
+      if (d.overIdx != null && d.overIdx !== d.idx) {
+        const from = d.idx;
+        let to = d.side === "below" ? d.overIdx + 1 : d.overIdx;
+        if (from < to) to -= 1;
+        setDrag(null);
+        if (from !== to) { await persistOrder(mice, from, to, "mc_mice"); await ops.reload(); }
+        return;
+      }
+      setDrag(null);
+    };
+
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+  };
 
   // 훅 호출이 모두 끝난 뒤에 조건부 렌더링
   if (q && list.length === 0) return null;
@@ -239,8 +276,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <table className="mtable">
           <thead>
             <tr>
-              <th style={{ width: "26px" }}></th>
-              <th className="c" style={{ width: "9%" }}>개체</th>
+              <th className="c" style={{ width: "11%" }}>개체</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
@@ -260,9 +296,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               const canDrag = !q;
               return (
                 <MouseRow key={m.id} m={m} idx={idx} cage={cage} ops={ops} me={me} canDrag={canDrag}
-                  isBaby={isBaby} w={w}
-                  dragI={dragI} setDragI={setDragI} overI={overI} setOverI={setOverI}
-                  overSide={overSide} setOverSide={setOverSide} mice={mice} setEditing={setEditing} />
+                  isBaby={isBaby} w={w} drag={drag} onGrab={onGrab}
+                  setEditing={setEditing} confirmDelete={confirmDelete} />
               );
             })}
             {editing === "new" && (
@@ -424,7 +459,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(q.toLowerCase())))) ? (
               <div className="empty">
                 <p className="empty-t">‘{q}’ 검색 결과가 없어요</p>
-                <p className="muted">ex. HM · 유전자형 · DOB 검색</p>
+                <p className="muted">ex. HM, DOB 검색</p>
                 <button className="btn btn-s" style={{ marginTop: 12 }} onClick={() => setQ("")}>검색 지우기</button>
               </div>
             ) :
