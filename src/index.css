@@ -275,7 +275,7 @@ body.dragging-row::before{
 body.dragging-row::after{content:none}
 
 /* 끌고 있는 행: 살짝 떠오르는 느낌 */
-.mtable tbody tr.swiping{position:relative;z-index:4;cursor:grabbing;
+.mtable tbody tr.swiping{position:relative;z-index:4;cursor:grabbing;pointer-events:none;
   box-shadow:0 14px 34px -16px rgba(60,50,40,.5)}
 .mtable tbody tr.swiping > td{background:var(--surface)}
 

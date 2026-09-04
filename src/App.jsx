@@ -111,10 +111,10 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
     <tr
       className={(isBaby ? "baby" : "") +
         (isDragging ? " swiping" : "") +
-        (isDragging && drag.mode === "delete" ? " armed" : "") +
+        (isDragging && drag.mode === "delete" && drag.armed ? " armed" : "") +
         (isTarget ? (drag.side === "above" ? " drop-above" : " drop-below") : "")}
       style={isDragging ? {
-        transform: `translate(${drag.dx}px, ${drag.dy}px) scale(${drag.mode === "delete" ? 0.97 : 1})`,
+        transform: `translate(${drag.dx}px, ${drag.dy}px) scale(${drag.armed ? 0.97 : 1})`,
       } : undefined}
       data-row={idx} data-cage={cage.id}
       onPointerDown={(e) => canDrag && onGrab(e, idx)}>
@@ -191,22 +191,38 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const onGrab = (e, idx) => {
     if (e.button === 1 || e.button === 2) return;
     if (e.target.closest("button,input,select,textarea,a")) return;
-    const st = { idx, x: e.clientX, y: e.clientY, active: false, mode: "move", overIdx: null, side: "above" };
+    const touch = e.pointerType === "touch" || window.matchMedia("(hover: none)").matches;
+    const st = { idx, x: e.clientX, y: e.clientY, active: false, mode: "move",
+      overIdx: null, side: "above", touch };
     dragRef.current = st;
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.classList.remove("dragging-row");
+      setDrag(null);
+    };
 
     const move = (ev) => {
       const d = dragRef.current; if (!d) return;
       const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
       if (!d.active) {
-        if (Math.hypot(dx, dy) < 8) return;
+        if (d.touch) {
+          // 모바일: 세로로 움직이면 페이지 스크롤에 양보, 가로일 때만 시작
+          if (Math.abs(dy) > Math.abs(dx)) { dragRef.current = null; cleanup(); return; }
+          if (Math.abs(dx) < 14) return;
+        } else if (Math.hypot(dx, dy) < 8) return;
         d.active = true;
         document.body.classList.add("dragging-row");
       }
       ev.preventDefault();
-      const far = isOutsidePanel(ev.clientX, ev.clientY) || Math.abs(dx) > 150;
-      d.mode = far ? "delete" : "move";
+      // 모바일은 항상 '스와이프 삭제'
+      const far = d.touch
+        ? Math.abs(dx) > 96 || isOutsidePanel(ev.clientX, ev.clientY)
+        : isOutsidePanel(ev.clientX, ev.clientY) || Math.abs(dx) > 150;
+      d.mode = d.touch ? "delete" : (far ? "delete" : "move");
       d.overIdx = null;
-      if (!far) {
+      if (!d.touch && !far) {
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
         const tr = el && el.closest("tr[data-row]");
         if (tr && tr.dataset.cage === cage.id) {
@@ -216,7 +232,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
           d.side = ev.clientY < r.top + r.height / 2 ? "above" : "below";
         }
       }
-      setDrag({ idx: d.idx, dx, dy, mode: d.mode, overIdx: d.overIdx, side: d.side });
+      d.lastDx = dx; d.wasOutside = isOutsidePanel(ev.clientX, ev.clientY);
+      setDrag({ idx: d.idx, dx, dy: d.touch ? 0 : dy, mode: d.mode, overIdx: d.overIdx, side: d.side, armed: far });
     };
 
     const up = async () => {
@@ -227,8 +244,12 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       if (!d || !d.active) { setDrag(null); return; }
 
       if (d.mode === "delete") {
+        const dx = d.lastDx || 0;
+        const armed = d.touch
+          ? Math.abs(dx) > 96 || d.wasOutside
+          : true;
         setDrag(null);
-        await confirmDelete(list[d.idx]);
+        if (armed) await confirmDelete(list[d.idx]);
         return;
       }
       if (d.overIdx != null && d.overIdx !== d.idx) {
