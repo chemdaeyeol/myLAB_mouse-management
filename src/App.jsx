@@ -91,14 +91,14 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
     if (ok) await ops.remove(m.id, me, `${cage.label} / ${m.label}`);
     return ok;
   };
-  const { dx, armed, bind } = useSwipeDelete({ onDelete: doDelete, disabled: !canDrag });
+  const { dx, dy, armed, bind } = useSwipeDelete({ onDelete: doDelete, disabled: !canDrag });
 
   return (
     <tr
       className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
         (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "") +
-        (dx !== 0 ? " swiping" : "") + (armed ? " armed" : "")}
-      style={dx ? { transform: `translateX(${dx}px)` } : undefined}
+        (dx !== 0 || dy !== 0 ? " swiping" : "") + (armed ? " armed" : "")}
+      style={(dx || dy) ? { transform: `translate(${dx}px, ${dy}px)` } : undefined}
       {...bind}
       onDragOver={(e) => {
         if (!canDrag || dragI === null) return;
@@ -388,6 +388,14 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
 
         {cageOps.loading ? <p className="muted">불러오는 중…</p> :
           gCages.length === 0 ? <p className="muted">케이지가 없어요.</p> :
+            (q && !gCages.some((c) => (byCage[c.id] || []).some((m) =>
+              [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(q.toLowerCase())))) ? (
+              <div className="empty">
+                <p className="empty-t">‘{q}’ 검색 결과가 없어요</p>
+                <p className="muted">개체명 · 유전자형 · DOB · 비고에서 찾습니다.</p>
+                <button className="btn btn-s" style={{ marginTop: 12 }} onClick={() => setQ("")}>검색 지우기</button>
+              </div>
+            ) :
             gCages.map((c, i) => (
               <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q}
                 dragCage={{

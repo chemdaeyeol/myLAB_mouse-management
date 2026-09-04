@@ -73,41 +73,43 @@ export function ConfirmProvider({ children }) {
    포인터 이벤트라 마우스·트랙패드·터치 모두 동작. */
 export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
   const [dx, setDx] = useState(0);
+  const [dy, setDy] = useState(0);
   const [outside, setOutside] = useState(false);
   const st = useRef(null);
   const cb = useRef({ onDelete, threshold });
   cb.current = { onDelete, threshold };
 
-  // 본문 패널(.app) 바깥(좌우 여백)으로 끌었는지 판정
-  const isOutsidePanel = (clientX) => {
+  // 본문 패널(.app) 바깥으로 끌었는지 판정 (좌·우·위·아래 모두)
+  const isOutsidePanel = (x, y) => {
     const panel = document.querySelector(".app");
-    const vw = window.innerWidth;
+    const vw = window.innerWidth, vh = window.innerHeight;
     if (panel) {
       const r = panel.getBoundingClientRect();
-      if (r.left > 12 || r.right < vw - 12) return clientX < r.left + 18 || clientX > r.right - 18;
+      const sideMargin = r.left > 12 || r.right < vw - 12;
+      if (sideMargin && (x < r.left + 18 || x > r.right - 18)) return true;
     }
-    return clientX < 30 || clientX > vw - 30;
+    return x < 30 || x > vw - 30 || y < 30 || y > vh - 30;
   };
 
   const onPointerDown = (e) => {
     if (disabled || e.button === 1 || e.button === 2) return;
     if (e.target.closest("button,input,select,textarea,.handle,a")) return;
 
-    const start = { x: e.clientX, y: e.clientY, active: false, moved: 0, out: false };
+    const start = { x: e.clientX, y: e.clientY, active: false, mx: 0, my: 0, out: false };
     st.current = start;
 
     const move = (ev) => {
       const s = st.current; if (!s) return;
       const mx = ev.clientX - s.x, my = ev.clientY - s.y;
       if (!s.active) {
-        if (Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my)) return; // 세로 스크롤 우선
+        if (Math.hypot(mx, my) < 12) return;   // 아주 작은 움직임은 클릭으로
         s.active = true;
         document.body.classList.add("dragging-row");
       }
       ev.preventDefault();
-      s.moved = mx;
-      s.out = isOutsidePanel(ev.clientX);
-      setDx(mx);
+      s.mx = mx; s.my = my;
+      s.out = isOutsidePanel(ev.clientX, ev.clientY);
+      setDx(mx); setDy(my);
       setOutside(s.out);
     };
 
@@ -118,11 +120,13 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
       const s = st.current; st.current = null;
       document.body.classList.remove("dragging-row");
       setOutside(false);
-      if (s?.active && (Math.abs(s.moved) >= cb.current.threshold || s.out)) {
-        setDx(s.moved > 0 ? 360 : -360);
+      const dist = s ? Math.hypot(s.mx, s.my) : 0;
+      if (s?.active && (dist >= cb.current.threshold || s.out)) {
+        const k = 380 / (dist || 1);
+        setDx(s.mx * k); setDy(s.my * k);
         const ok = await cb.current.onDelete();
-        if (!ok) setDx(0);
-      } else setDx(0);
+        if (!ok) { setDx(0); setDy(0); }
+      } else { setDx(0); setDy(0); }
     };
 
     const cancel = () => {
@@ -131,7 +135,7 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
       window.removeEventListener("pointercancel", cancel);
       st.current = null;
       document.body.classList.remove("dragging-row");
-      setDx(0); setOutside(false);
+      setDx(0); setDy(0); setOutside(false);
     };
 
     window.addEventListener("pointermove", move, { passive: false });
@@ -139,6 +143,6 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     window.addEventListener("pointercancel", cancel);
   };
 
-  const armed = Math.abs(dx) >= threshold || outside;
-  return { dx, armed, outside, bind: { onPointerDown } };
+  const armed = Math.hypot(dx, dy) >= threshold || outside;
+  return { dx, dy, armed, outside, bind: { onPointerDown } };
 }
