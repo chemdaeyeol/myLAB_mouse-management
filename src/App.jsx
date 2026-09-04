@@ -47,22 +47,15 @@ function ageWeeks(dobStr) {
   return w >= 0 && w < 400 ? w : null;
 }
 // 표시 단위: auto → w → m → y (배지 클릭으로 순환)
-const AGE_UNITS = ["auto", "w", "m", "y"];
+const AGE_UNITS = ["w", "m", "y"];
 const AGE_KEY = "mc_age_unit";
-export const AgeUnitCtx = createContext({ unit: "auto", cycle: () => {} });
+export const AgeUnitCtx = createContext({ unit: "m", cycle: () => {} });
 
-const ageBadge = (w, unit = "auto") => {
+const ageBadge = (w, unit = "m") => {
   if (w == null) return null;
   if (unit === "w") return `${w}w`;
-  if (unit === "m") return `${Math.floor(w / 4.345)}m`;
   if (unit === "y") return `${(w / 52.14).toFixed(1)}y`;
-  // auto
-  if (w < 4) return "baby";
-  if (w < 13) return `${w}w`;
-  const months = Math.floor(w / 4.345);
-  if (months < 24) return `${months}m`;
-  const years = Math.floor(months / 12), rem = months % 12;
-  return rem ? `${years}y ${rem}m` : `${years}y`;
+  return `${Math.floor(w / 4.345)}m`;
 };
 
 /* ---------------- small UI ---------------- */
@@ -103,7 +96,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
   const { unit, cycle } = useContext(AgeUnitCtx);
   const doDelete = async () => {
     const ok = await confirm({
-      title: "개체를 삭제할까요?",
+      title: "Mouse를 삭제할까요?",
       body: `${cage.label} · ${m.label || "이름 없음"}`,
     });
     if (ok) await ops.remove(m.id, me, `${cage.label} / ${m.label}`);
@@ -149,12 +142,15 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
       <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
       <td className="c">{m.g3 && <span className="gchip">{m.g3}</span>}</td>
-      <td className="mono c">{m.dob}
-        {ageBadge(w, unit) && (
-          <button className="age" title="클릭하면 단위 전환 (자동 · 주 · 개월 · 년)"
-            onClick={(e) => { e.stopPropagation(); cycle(); }}
-            onPointerDown={(e) => e.stopPropagation()}>{ageBadge(w, unit)}</button>
-        )}
+      <td className="mono c dob-cell">
+        <span className="dob-wrap">
+          <span className="dob-date">{m.dob}</span>
+          {ageBadge(w, unit) && (
+            <button className="age" title="클릭하면 단위 전환 (주 · 개월 · 년)"
+              onClick={(e) => { e.stopPropagation(); cycle(); }}
+              onPointerDown={(e) => e.stopPropagation()}>{ageBadge(w, unit)}</button>
+          )}
+        </span>
       </td>
       <td className="note c">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
       <td className="row-actions">
@@ -243,12 +239,12 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <table className="mtable">
           <thead>
             <tr>
-              <th style={{ width: "34px" }}></th>
-              <th className="c" style={{ width: "12%" }}>개체</th>
+              <th style={{ width: "26px" }}></th>
+              <th className="c" style={{ width: "9%" }}>개체</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
-              <th className="c" style={{ width: "17%" }}>DOB</th>
+              <th className="c" style={{ width: "20%" }}>DOB</th>
               <th className="c">비고</th>
               <th style={{ width: "72px" }}></th>
             </tr>
@@ -324,7 +320,8 @@ function AppInner() {
   const [cSide, setCSide] = useState("above");
   const askText = usePrompt();
   const [ageUnit, setAgeUnit] = useState(() => {
-    try { return localStorage.getItem(AGE_KEY) || "auto"; } catch { return "auto"; }
+    const v = (() => { try { return localStorage.getItem(AGE_KEY); } catch { return null; } })();
+    return AGE_UNITS.includes(v) ? v : "m";
   });
   const cycleAge = () => setAgeUnit((u) => {
     const next = AGE_UNITS[(AGE_UNITS.indexOf(u) + 1) % AGE_UNITS.length];
@@ -427,7 +424,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(q.toLowerCase())))) ? (
               <div className="empty">
                 <p className="empty-t">‘{q}’ 검색 결과가 없어요</p>
-                <p className="muted">HM · 유전자형 · DOB 검색</p>
+                <p className="muted">ex. HM · 유전자형 · DOB 검색</p>
                 <button className="btn btn-s" style={{ marginTop: 12 }} onClick={() => setQ("")}>검색 지우기</button>
               </div>
             ) :

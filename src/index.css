@@ -289,3 +289,9 @@ body.dragging-row::after{content:none}
 
 /* 유전자형 열 가운데 정렬 */
 .mtable th.c,.mtable td.c{text-align:center}
+
+/* DOB: 날짜 + 나이배지를 한 줄로 고정, 배지는 항상 오른쪽 */
+.dob-cell{white-space:nowrap}
+.dob-wrap{display:inline-flex;align-items:center;gap:0;justify-content:center}
+.dob-date{white-space:nowrap}
+.hcell{width:26px}
