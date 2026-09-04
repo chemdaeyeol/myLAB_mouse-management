@@ -247,14 +247,10 @@ tr.drop-below td{box-shadow:inset 0 -2px 0 0 var(--blue)}
 .mtable tbody tr.swiping{position:relative;z-index:2;cursor:grabbing;
   box-shadow:0 6px 20px -10px rgba(60,50,40,.45)}
 .mtable tbody tr.swiping > td{background:var(--surface)}
-.mtable tbody tr.armed > td{background:#FFF2F2}
-.mtable tbody tr.armed > td:first-child{box-shadow:inset 3px 0 0 #D70015}
-.mtable tbody tr.armed > td:last-child{box-shadow:inset -3px 0 0 #D70015}
 .mtable tbody tr:not(.swiping){transition:transform .18s cubic-bezier(.2,.9,.3,1)}
 
 /* 행을 카드 밖(좌우 여백)으로 끌 수 있도록 잘림 해제 */
 .cage:has(tr.swiping){overflow:visible}
-.mtable tbody tr.armed > td{background:#FFECEC}
 
 
 /* 드래그 중 텍스트 선택 방지 */
@@ -267,14 +263,27 @@ body.dragging-row{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .empty-t{margin:0 0 6px;font-size:16px;font-weight:600;color:var(--t1)}
 
 
-/* 드래그 중: 화면 네 모서리에만 붉은 글로우 */
+
+/* 드래그 중: 아주 옅은 중성 비네트 (색 없음) */
 body.dragging-row::before{
-  content:"";position:fixed;inset:0;width:auto;height:auto;
-  z-index:60;pointer-events:none;animation:fadeIn .15s ease;
-  background:
-    radial-gradient(circle at 0% 0%,     rgba(215,0,21,.26) 0, rgba(215,0,21,0) 190px),
-    radial-gradient(circle at 100% 0%,   rgba(215,0,21,.26) 0, rgba(215,0,21,0) 190px),
-    radial-gradient(circle at 0% 100%,   rgba(215,0,21,.26) 0, rgba(215,0,21,0) 190px),
-    radial-gradient(circle at 100% 100%, rgba(215,0,21,.26) 0, rgba(215,0,21,0) 190px);
+  content:"";position:fixed;inset:0;width:auto;height:auto;z-index:55;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 50%, rgba(60,50,40,0) 52%, rgba(60,50,40,.10) 100%);
+  animation:fadeIn .18s ease;
 }
 body.dragging-row::after{content:none}
+
+/* 끌고 있는 행: 살짝 떠오르는 느낌 */
+.mtable tbody tr.swiping{position:relative;z-index:4;cursor:grabbing;
+  box-shadow:0 14px 34px -16px rgba(60,50,40,.5)}
+.mtable tbody tr.swiping > td{background:var(--surface)}
+
+/* 놓으면 삭제되는 상태: 은은한 붉은 톤 + 살짝 축소 */
+.mtable tbody tr.armed > td{background:#FEF4F4;color:#9B1220}
+.mtable tbody tr.armed > td .gchip,
+.mtable tbody tr.armed > td .age,
+.mtable tbody tr.armed > td .wt{background:#FBE4E4;color:#9B1220}
+.mtable tbody tr.armed{opacity:.9}
+.mtable tbody tr.swiping.armed{box-shadow:0 12px 30px -16px rgba(155,18,32,.5)}
+
+/* 유전자형 열 가운데 정렬 */
+.mtable th.c,.mtable td.c{text-align:center}

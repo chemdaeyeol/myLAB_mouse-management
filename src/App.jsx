@@ -98,7 +98,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
       className={(isBaby ? "baby" : "") + (dragI === idx ? " dragging" : "") +
         (overI === idx && dragI !== idx ? (overSide === "above" ? " drop-above" : " drop-below") : "") +
         (dx !== 0 || dy !== 0 ? " swiping" : "") + (armed ? " armed" : "")}
-      style={(dx || dy) ? { transform: `translate(${dx}px, ${dy}px)` } : undefined}
+      style={(dx || dy) ? { transform: `translate(${dx}px, ${dy}px) scale(${armed ? 0.97 : 1})` } : undefined}
       {...bind}
       onDragOver={(e) => {
         if (!canDrag || dragI === null) return;
@@ -128,9 +128,9 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, dragI, setDragI,
         )}
       </td>
       <td className="mono strong">{m.label}</td>
-      <td>{m.g1 && <span className="gchip">{m.g1}</span>}</td>
-      <td>{m.g2 && <span className="gchip">{m.g2}</span>}</td>
-      <td>{m.g3 && <span className="gchip">{m.g3}</span>}</td>
+      <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
+      <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
+      <td className="c">{m.g3 && <span className="gchip">{m.g3}</span>}</td>
       <td className="mono">{m.dob}{ageBadge(w) && <span className="age">{ageBadge(w)}</span>}</td>
       <td className="note">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
       <td className="row-actions">
@@ -146,7 +146,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const deleteCage = async () => {
     const ok = await confirm({
       title: "케이지를 삭제할까요?",
-      body: `${cage.label} · 소속 개체 ${mice.length}마리가 함께 삭제됩니다.`,
+      body: `${cage.label} · 소속 Mouse ${mice.length}마리가 함께 삭제됩니다.`,
     });
     if (ok) await cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
     return ok;
@@ -218,11 +218,11 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
           <thead>
             <tr>
               <th style={{ width: "34px" }}></th>
-              <th style={{ width: "13%" }}>개체</th>
-              <th>{cage.g1_label || "G1"}</th>
-              <th>{cage.g2_label || "G2"}</th>
-              <th>{cage.g3_label || "G3"}</th>
-              <th style={{ width: "16%" }}>DOB</th>
+              <th style={{ width: "12%" }}>개체</th>
+              <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
+              <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
+              <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
+              <th style={{ width: "17%" }}>DOB</th>
               <th>비고</th>
               <th style={{ width: "72px" }}></th>
             </tr>
