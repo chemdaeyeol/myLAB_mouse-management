@@ -75,6 +75,8 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
   const [dx, setDx] = useState(0);
   const [outside, setOutside] = useState(false);
   const st = useRef(null);
+  const cb = useRef({ onDelete, threshold });
+  cb.current = { onDelete, threshold };
 
   // 본문 패널(.app) 바깥(좌우 여백)으로 끌었는지 판정
   const isOutsidePanel = (clientX) => {
@@ -82,49 +84,61 @@ export function useSwipeDelete({ onDelete, threshold = 96, disabled }) {
     const vw = window.innerWidth;
     if (panel) {
       const r = panel.getBoundingClientRect();
-      // 패널 좌우에 여백이 있으면 그 여백으로 끌었는지 판정
       if (r.left > 12 || r.right < vw - 12) return clientX < r.left + 18 || clientX > r.right - 18;
     }
-    // 여백이 없는 좁은 화면에서는 화면 가장자리 기준
     return clientX < 30 || clientX > vw - 30;
   };
 
   const onPointerDown = (e) => {
     if (disabled || e.button === 1 || e.button === 2) return;
     if (e.target.closest("button,input,select,textarea,.handle,a")) return;
-    st.current = { x: e.clientX, y: e.clientY, active: false, id: e.pointerId };
-  };
-  const onPointerMove = (e) => {
-    const s = st.current; if (!s) return;
-    const mx = e.clientX - s.x, my = e.clientY - s.y;
-    if (!s.active) {
-      if (Math.abs(mx) < 12 || Math.abs(mx) < Math.abs(my)) return; // 세로 스크롤 우선
-      s.active = true;
-      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
-      document.body.classList.add("dragging-row");
-    }
-    setDx(mx);
-    setOutside(isOutsidePanel(e.clientX));
-  };
-  const finish = async () => {
-    const s = st.current; const moved = dx; const wasOutside = outside;
-    st.current = null;
-    setOutside(false);
-    document.body.classList.remove("dragging-row");
-    if (s?.active && (Math.abs(moved) >= threshold || wasOutside)) {
-      setDx(moved > 0 ? 340 : -340);
-      const ok = await onDelete();
-      if (!ok) setDx(0);          // 취소하면 제자리로
-    } else setDx(0);
+
+    const start = { x: e.clientX, y: e.clientY, active: false, moved: 0, out: false };
+    st.current = start;
+
+    const move = (ev) => {
+      const s = st.current; if (!s) return;
+      const mx = ev.clientX - s.x, my = ev.clientY - s.y;
+      if (!s.active) {
+        if (Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my)) return; // 세로 스크롤 우선
+        s.active = true;
+        document.body.classList.add("dragging-row");
+      }
+      ev.preventDefault();
+      s.moved = mx;
+      s.out = isOutsidePanel(ev.clientX);
+      setDx(mx);
+      setOutside(s.out);
+    };
+
+    const up = async () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      const s = st.current; st.current = null;
+      document.body.classList.remove("dragging-row");
+      setOutside(false);
+      if (s?.active && (Math.abs(s.moved) >= cb.current.threshold || s.out)) {
+        setDx(s.moved > 0 ? 360 : -360);
+        const ok = await cb.current.onDelete();
+        if (!ok) setDx(0);
+      } else setDx(0);
+    };
+
+    const cancel = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      st.current = null;
+      document.body.classList.remove("dragging-row");
+      setDx(0); setOutside(false);
+    };
+
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
   };
 
   const armed = Math.abs(dx) >= threshold || outside;
-  return {
-    dx, armed, outside,
-    bind: {
-      onPointerDown, onPointerMove,
-      onPointerUp: finish,
-      onPointerCancel: () => { st.current = null; setDx(0); setOutside(false); document.body.classList.remove("dragging-row"); },
-    },
-  };
+  return { dx, armed, outside, bind: { onPointerDown } };
 }
