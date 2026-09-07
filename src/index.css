@@ -177,7 +177,6 @@ tr:hover .row-actions{opacity:1}
   .top h1{font-size:28px}
   .who{margin-left:0}
   .mtable th,.mtable td{padding:11px 14px}
-  .mtable th:nth-child(6),.mtable td:nth-child(6){display:none}
   .cage-head{padding:14px 16px}
 }
 
@@ -379,13 +378,15 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .chat-fab:active{transform:translateY(0)}
 @media (max-width:760px){.chat-fab{right:14px;bottom:14px;width:50px;height:50px}}
 
-/* 지노타이핑 중 */
-.geno-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
-  color:#8A5316;background:#FDF3E3;border-radius:980px;padding:3px 10px}
-.cage.genotyping{border-color:#F0D9AE;box-shadow:0 0 0 1px #F7E7C9 inset}
-.cage.genotyping .cage-head{background:#FFFCF6}
-.iconbtn.on{color:#C2610B;background:#FDF3E3}
-.iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
+/* 지노타이핑 중 — 카드는 그대로, 배지로만 표시 */
+.geno-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  color:var(--t2);background:var(--surface);border:1px solid var(--sep);
+  border-radius:980px;padding:3px 10px}
+.geno-badge svg{color:#C2610B}
+.iconbtn.on{color:#C2610B}
+.iconbtn.on:hover{background:var(--bg);color:#C2610B}
+
+
 
 /* 안내 팝업: 닫을 때 빨려 들어가는 연출 */
 .modal-back.leaving{animation:backOut .42s ease forwards}
@@ -399,4 +400,22 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 @media (prefers-reduced-motion:reduce){
   .modal.suck{animation:none;opacity:0}
   .modal-back.leaving{animation:none;opacity:0}
+}
+
+/* ---------- 표 가로 스크롤 (모바일) ---------- */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.tscroll::-webkit-scrollbar{height:6px}
+.tscroll::-webkit-scrollbar-thumb{background:var(--sep);border-radius:980px}
+.tscroll::-webkit-scrollbar-track{background:transparent}
+
+@media (max-width:760px){
+  .mtable{min-width:660px}
+  /* 개체명 열 고정 — 가로로 밀어도 어느 마우스인지 보이게 */
+  .mtable th:first-child,.mtable td:first-child{
+    position:sticky;left:0;z-index:2;background:var(--surface);
+    box-shadow:1px 0 0 var(--sep-soft)}
+  .mtable tr:hover > td:first-child{background:var(--surface-2)}
+  .mtable tbody tr.swiping > td:first-child{background:var(--surface)}
+  .form-row td{position:static !important}
+  .tscroll{margin-bottom:2px}
 }
