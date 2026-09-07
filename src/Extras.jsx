@@ -112,7 +112,7 @@ export function IntroModal({ onClose }) {
         <h3 className="modal-title">Mouse Management Website (Beta)</h3>
         <p className="modal-body">마우스 관리 현황을 볼 수 있는 웹페이지에요.</p>
         <ul className="intro-list">
-          <li><b>탭</b> - 현재 관리중인 Cage 탭을 볼 수 있어요.Cage</li>
+          <li><b>탭</b> - 현재 관리중인 Cage 탭을 볼 수 있어요.</li>
           <li><b>검색</b> - 유전자형 · DOB 등을 검색할 수 있어요.</li>
           <li><b>주령 배지</b> - 마우스 나이를 주 · 개월 · 년 단위로 자동 전환할 수 있어요.</li>
           <li><b>유전자형</b> - 각 마우스 칸에 커서를 올리면 팁이 표시돼요.</li>
