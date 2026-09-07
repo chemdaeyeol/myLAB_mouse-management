@@ -387,41 +387,16 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .iconbtn.on{color:#C2610B;background:#FDF3E3}
 .iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
 
-
-/* ---------- 안내 팝업: 페이지로 빨려 들어가는 연출 ---------- */
-.modal-back.leaving{animation:vortexOut .52s cubic-bezier(.5,0,.9,.3) forwards;perspective:1100px}
-@keyframes vortexOut{
-  0%{opacity:1;backdrop-filter:blur(6px)}
-  45%{opacity:.85;backdrop-filter:blur(3px)}
-  100%{opacity:0;backdrop-filter:blur(0)}
-}
-/* 소용돌이처럼 안쪽으로 수축하는 링 */
-.modal-back.leaving::after{
-  content:"";position:fixed;left:50%;top:44%;width:120vmax;height:120vmax;
-  transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle, rgba(0,113,227,0) 38%, rgba(0,113,227,.16) 46%, rgba(0,113,227,0) 58%);
-  animation:ringCollapse .52s cubic-bezier(.5,0,.85,.4) forwards;
-}
-@keyframes ringCollapse{
-  0%{opacity:0;transform:translate(-50%,-50%) scale(1)}
-  25%{opacity:1}
-  100%{opacity:0;transform:translate(-50%,-50%) scale(.02)}
-}
-/* 팝업이 원근감 있게 화면 속으로 */
-.modal.suck{transform-origin:50% 44%;animation:suckIn .52s cubic-bezier(.55,-0.04,.9,.28) forwards}
+/* 안내 팝업: 닫을 때 빨려 들어가는 연출 */
+.modal-back.leaving{animation:backOut .42s ease forwards}
+.modal.suck{animation:suckIn .42s cubic-bezier(.55,0,.9,.35) forwards;transform-origin:50% 46%}
 @keyframes suckIn{
-  0%{opacity:1;transform:perspective(1000px) translate3d(0,0,0) rotate(0) scale(1);filter:blur(0)}
-  22%{opacity:1;transform:perspective(1000px) translate3d(0,-14px,60px) rotate(-2deg) scale(1.07)}
-  100%{opacity:0;transform:perspective(1000px) translate3d(0,54px,-1400px) rotate(26deg) scale(.03);filter:blur(6px)}
+  0%{opacity:1;transform:scale(1) rotate(0deg);filter:blur(0)}
+  35%{opacity:.95;transform:scale(1.04) rotate(-1deg)}
+  100%{opacity:0;transform:scale(.06) rotate(14deg);filter:blur(3px)}
 }
-/* 페이지가 들이마시듯 반응 */
-body.intro-leaving .app{animation:pageInhale .52s cubic-bezier(.3,.9,.3,1) both}
-@keyframes pageInhale{
-  0%{transform:scale(1.025);filter:brightness(1.05)}
-  55%{transform:scale(.994);filter:brightness(1)}
-  100%{transform:scale(1)}
-}
+@keyframes backOut{0%{opacity:1}60%{opacity:.7}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){
-  .modal.suck,.modal-back.leaving,.modal-back.leaving::after,body.intro-leaving .app{animation:none}
-  .modal.suck,.modal-back.leaving{opacity:0}
+  .modal.suck{animation:none;opacity:0}
+  .modal-back.leaving{animation:none;opacity:0}
 }

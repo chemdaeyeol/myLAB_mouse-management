@@ -107,8 +107,7 @@ export function IntroModal({ onClose }) {
       try { localStorage.setItem(INTRO_KEY, today); } catch { /* noop */ }
     }
     setLeaving(true);                 // 빨려 들어가는 연출 후 닫기
-    document.body.classList.add("intro-leaving");
-    setTimeout(() => { document.body.classList.remove("intro-leaving"); onClose(); }, 520);
+    setTimeout(onClose, 420);
   };
   return (
     <div className={"modal-back" + (leaving ? " leaving" : "")}
