@@ -109,22 +109,22 @@ export function IntroModal({ onClose }) {
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="modal intro" role="dialog" aria-modal="true">
-        <h3 className="modal-title">랩 마우스 콜로니 현황</h3>
-        <p className="modal-body">케이지와 개체 현황을 실시간으로 함께 보는 페이지예요.</p>
+        <h3 className="modal-title">Mouse Management Website (Beta)</h3>
+        <p className="modal-body">케이지와 마우스 현황을 실시간으로 함께 보는 페이지예요.</p>
         <ul className="intro-list">
-          <li><b>탭</b> — Chd8 콜로니 · GFAP × rtTA × 4F2A · 행동실험 · IHC</li>
-          <li><b>검색</b> — 개체명 · 유전자형 · DOB · 비고를 한 번에</li>
-          <li><b>주령 배지</b> — 눌러서 주 · 개월 · 년 단위 전환</li>
-          <li><b>유전자형</b> — 칩에 커서를 올리면 의미가 표시돼요</li>
-          <li><b>대화</b> — 오른쪽 아래 버튼으로 참여자끼리 소통</li>
-          <li><b>편집</b> — 관리자만 가능하고, 변경 기록이 남아요</li>
+          <li><b>탭</b> CHD8 · GFAP · 행동실험 · IHC Cage</li>
+          <li><b>검색</b> 개체명 · 유전자형 · DOB 등</li>
+          <li><b>주령 배지</b> 눌러서 주 · 개월 · 년 단위로 자동 전환이 가능해요</li>
+          <li><b>유전자형</b> 각 마우스 칸에 커서를 올리면 팁이 표시돼요</li>
+          <li><b>대화</b> 오른쪽 아래 버튼으로 프로젝트 참여자끼리 소통이 가능해요</li>
+          <li><b>편집</b> 관리자만 가능하고, 변경 기록이 남아요</li>
         </ul>
         <label className="intro-check">
           <input type="checkbox" checked={hide} onChange={(e) => setHide(e.target.checked)} />
           오늘 하루 보지 않기
         </label>
         <div className="modal-actions">
-          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>시작하기</button>
+          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>확인</button>
         </div>
       </div>
     </div>
