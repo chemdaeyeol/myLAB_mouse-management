@@ -319,7 +319,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 
 /* ---------- 유전자형 칩 + 호버 설명 ---------- */
 .gchip{position:relative;display:inline-block;font-family:var(--num);font-size:12.5px;font-weight:700;
-  color:var(--t1);background:var(--bg);border:1px solid var(--sep-soft);border-radius:7px;padding:3px 10px;cursor:help}
+  color:var(--t1);background:var(--bg);border:1px solid var(--sep-soft);border-radius:7px;padding:3px 10px}
 .gchip.g-HM{background:#E8F1FD;border-color:#CFE0F8;color:#12509B}
 .gchip.g-HT{background:#EFEAFB;border-color:#DED3F5;color:#5B37A7}
 .gchip.g-WT{background:#EDEFF2;border-color:#DEE2E7;color:#4A5460}
@@ -378,3 +378,25 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .chat-fab:hover{background:var(--blue-d);transform:translateY(-2px)}
 .chat-fab:active{transform:translateY(0)}
 @media (max-width:760px){.chat-fab{right:14px;bottom:14px;width:50px;height:50px}}
+
+/* 지노타이핑 중 */
+.geno-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+  color:#8A5316;background:#FDF3E3;border-radius:980px;padding:3px 10px}
+.cage.genotyping{border-color:#F0D9AE;box-shadow:0 0 0 1px #F7E7C9 inset}
+.cage.genotyping .cage-head{background:#FFFCF6}
+.iconbtn.on{color:#C2610B;background:#FDF3E3}
+.iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
+
+/* 안내 팝업: 닫을 때 빨려 들어가는 연출 */
+.modal-back.leaving{animation:backOut .42s ease forwards}
+.modal.suck{animation:suckIn .42s cubic-bezier(.55,0,.9,.35) forwards;transform-origin:50% 46%}
+@keyframes suckIn{
+  0%{opacity:1;transform:scale(1) rotate(0deg);filter:blur(0)}
+  35%{opacity:.95;transform:scale(1.04) rotate(-1deg)}
+  100%{opacity:0;transform:scale(.06) rotate(14deg);filter:blur(3px)}
+}
+@keyframes backOut{0%{opacity:1}60%{opacity:.7}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .modal.suck{animation:none;opacity:0}
+  .modal-back.leaving{animation:none;opacity:0}
+}

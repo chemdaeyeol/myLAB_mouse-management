@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical,
 } from "lucide-react";
 import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
@@ -286,7 +286,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   if (q && list.length === 0) return null;
 
   return (
-    <div className={"cage" + (cage.done ? " done" : "") + (dragCage?.isDragging ? " dragging" : "") +
+    <div className={"cage" + (cage.done ? " done" : "") + (cage.genotyping ? " genotyping" : "") + (dragCage?.isDragging ? " dragging" : "") +
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
@@ -296,6 +296,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         )}
         <span className="ctype" style={{ background: t.color }}>{t.label}</span>
         {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
+        {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> 지노타이핑 중</span>}
         {editCage ? (
           <div className="cage-edit">
             <input className="in" value={cf.label} onChange={(e) => setCf({ ...cf, label: e.target.value })} />
@@ -314,6 +315,14 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-actions">
+              {canEdit && (
+                <button className={"iconbtn" + (cage.genotyping ? " on" : "")}
+                  title={cage.genotyping ? "지노타이핑 완료" : "지노타이핑 중으로 표시"}
+                  onClick={() => cageOps.update(cage.id, { genotyping: !cage.genotyping }, me,
+                    `케이지 ${cage.label} 지노타이핑 ${cage.genotyping ? "해제" : "시작"}`)}>
+                  <FlaskConical size={14} />
+                </button>
+              )}
               {canEdit && cage.grp === "behavior" && (
                 <button className="iconbtn" title={cage.done ? "완료 취소" : "실험 완료로 표시"}
                   onClick={() => cageOps.update(cage.id, { done: !cage.done, done_at: cage.done ? null : new Date().toISOString() },
@@ -493,9 +502,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           </div>
           <div className="who">
             <span className="clock" title="현재 시각">
-              {now.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", "")}
-              {" "}{now.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
-              {" "}{now.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true })}
+              {now.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+              {" ("}{now.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", "")}{") "}
+              {now.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true })}
             </span>
             <span className={"presence" + (people.length ? "" : " off")}
               title={people.length ? people.map((p) => p.name + (p.editor ? " (편집 중)" : "")).join(", ") : "실시간 연결 중"}>
@@ -547,7 +556,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
           <span className="stat">
-            케이지 {gCages.length} · 마우스 {totalMice}
+            케이지 {gCages.length} · mouse {totalMice}
+            {gCages.filter((c) => c.genotyping).length > 0 && ` · 지노타이핑 ${gCages.filter((c) => c.genotyping).length}`}
             {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
           </span>
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
@@ -561,7 +571,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(q.toLowerCase())))) ? (
               <div className="empty">
                 <p className="empty-t">‘{q}’ 검색 결과가 없어요</p>
-                <p className="muted">ex. HM, DOB 검색</p>
+                <p className="muted">ex. HM, DOB 등을 검색하세요</p>
                 <button className="btn btn-s" style={{ marginTop: 12 }} onClick={() => setQ("")}>검색 지우기</button>
               </div>
             ) :
@@ -607,7 +617,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-       마우스 관리 웹사이트 베타버전. 
+       마우스 관리 웹사이트 베타버전.
       </div></footer>
       {intro && <IntroModal onClose={() => setIntro(false)} />}
       {chatOpen

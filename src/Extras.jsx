@@ -99,18 +99,22 @@ export function ChatPanel({ onClose, askName }) {
 const INTRO_KEY = "mc_intro_hidden_until";
 export function IntroModal({ onClose }) {
   const [hide, setHide] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const close = () => {
+    if (leaving) return;
     if (hide) {
       const today = new Date().toISOString().slice(0, 10);
       try { localStorage.setItem(INTRO_KEY, today); } catch { /* noop */ }
     }
-    onClose();
+    setLeaving(true);                 // 빨려 들어가는 연출 후 닫기
+    setTimeout(onClose, 420);
   };
   return (
-    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="modal intro" role="dialog" aria-modal="true">
-        <h3 className="modal-title">Mouse Management Website (Beta)</h3>
-        <p className="modal-body">마우스 관리 현황을 볼 수 있는 웹페이지에요.</p>
+    <div className={"modal-back" + (leaving ? " leaving" : "")}
+      onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className={"modal intro" + (leaving ? " suck" : "")} role="dialog" aria-modal="true">
+        <h3 className="modal-title">랩 마우스 콜로니 현황</h3>
+        <p className="modal-body">케이지와 개체 현황을 실시간으로 함께 보는 페이지예요.</p>
         <ul className="intro-list">
           <li><b>탭</b> - 현재 관리중인 Cage 탭을 볼 수 있어요.</li>
           <li><b>검색</b> - 유전자형 · DOB 등을 검색할 수 있어요.</li>
@@ -123,7 +127,7 @@ export function IntroModal({ onClose }) {
           오늘 하루 보지 않기
         </label>
         <div className="modal-actions">
-          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>확인</button>
+          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>시작하기</button>
         </div>
       </div>
     </div>
