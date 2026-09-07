@@ -113,8 +113,8 @@ export function IntroModal({ onClose }) {
     <div className={"modal-back" + (leaving ? " leaving" : "")}
       onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className={"modal intro" + (leaving ? " suck" : "")} role="dialog" aria-modal="true">
-        <h3 className="modal-title">랩 마우스 콜로니 현황</h3>
-        <p className="modal-body">케이지와 개체 현황을 실시간으로 함께 보는 페이지예요.</p>
+        <h3 className="modal-title">Mouse Management Website (Beta)</h3>
+        <p className="modal-body">마우스 관리 현황을 볼 수 있는 웹페이지에요.</p>
         <ul className="intro-list">
           <li><b>탭</b> - 현재 관리중인 Cage 탭을 볼 수 있어요.</li>
           <li><b>검색</b> - 유전자형 · DOB 등을 검색할 수 있어요.</li>
