@@ -296,8 +296,6 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             draggable onDragStart={dragCage?.onDragStart} onDragEnd={dragCage?.onDragEnd}><GripVertical size={15} /></span>
         )}
         <span className="ctype" style={{ background: t.color }}>{t.label}</span>
-        {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
-        {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> Genotyping 中</span>}
         {editCage ? (
           <div className="cage-edit">
             <input className="in" value={cf.label} onChange={(e) => setCf({ ...cf, label: e.target.value })} />
@@ -314,6 +312,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             {cage.note && <span className="cage-note">{cage.note}</span>}
             <span className="cage-counts">
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
+            </span>
+            <span className="cage-status">
+              {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> 지노타이핑 중</span>}
+              {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
             </span>
             <span className="cage-actions">
               {canEdit && (
@@ -345,7 +347,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <div className="tscroll"><table className="mtable">
           <thead>
             <tr>
-              <th className="c" style={{ width: "11%" }}>Mouse</th>
+              <th className="c" style={{ width: "11%" }}>개체</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
@@ -618,7 +620,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-       마우스 관리 웹사이트 베타버전
+       마우스 관리 현황 웹사이트 베타버전
       </div></footer>
       {intro && <IntroModal onClose={() => setIntro(false)} />}
       {chatOpen

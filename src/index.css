@@ -129,7 +129,9 @@ input:focus-visible{outline:none}
 .cage-title{margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--t1)}
 .cage-note{font-size:13px;color:var(--t2)}
 .cage-counts{font-size:13px;color:var(--t3);font-variant-numeric:tabular-nums}
-.cage-actions{margin-left:auto;display:flex;gap:2px}
+.cage-status{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.cage-actions{margin-left:10px;display:flex;gap:2px}
+.cage-status:empty{margin-left:auto}
 .cage-edit{display:flex;gap:8px;flex:1;flex-wrap:wrap;align-items:center}
 .cage-edit .in{max-width:200px}
 
