@@ -253,7 +253,7 @@ tr.drop-below td{box-shadow:inset 0 -2px 0 0 var(--blue)}
 
 /* 드래그 중 텍스트 선택 방지 */
 body.dragging-row{user-select:none;-webkit-user-select:none;cursor:grabbing}
-.mtable tbody tr{touch-action:pan-y;cursor:grab}
+.mtable tbody tr{cursor:grab}
 .mtable tbody tr:active{cursor:grabbing}
 
 /* 검색 결과 없음 */
@@ -403,7 +403,8 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 }
 
 /* ---------- 표 가로 스크롤 (모바일) ---------- */
-.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.tscroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;touch-action:pan-x pan-y}
 .tscroll::-webkit-scrollbar{height:6px}
 .tscroll::-webkit-scrollbar-thumb{background:var(--sep);border-radius:980px}
 .tscroll::-webkit-scrollbar-track{background:transparent}
