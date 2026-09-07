@@ -1,25 +1,35 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users,
 } from "lucide-react";
 import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
 import { ConfirmProvider, useConfirm, usePrompt } from "./ui.jsx";
+import { ChatPanel, IntroModal, shouldShowIntro, usePresence, readChatName } from "./Extras.jsx";
 
 /* ---------------- constants ---------------- */
 const GROUPS = [
   { key: "chd8", label: "CHD8", icon: Rat },
   { key: "gfap", label: "GFAP x rtTA x 4F2A", icon: Rat },
-  { key: "behavior", label: "행동실험 · IHC", icon: Rat },
+  { key: "behavior", label: "Behavior Test · IHC", icon: Rat },
 ];
 const CAGE_TYPES = {
   mating: { label: "Mating", color: "#0071E3" },
   dox: { label: "DOX", color: "#C2610B" },
-  behavior: { label: "Behavior Test", color: "#7A3FBF" },
+  behavior: { label: "Behavior", color: "#7A3FBF" },
   ihc: { label: "IHC", color: "#0F7C8A" },
   other: { label: "기타", color: "#86868B" },
 };
+const GENO_TIP = {
+  HM: "Homozygous",
+  HT: "Heterozygous",
+  WT: "Wild type",
+  O: "Positive",
+  X: "Negative",
+};
+const genoTip = (v) => GENO_TIP[(v || "").toUpperCase()] || v;
+
 const DOX_STATUS = { 완료: "#1D8C4B", 진행중: "#C2610B", 예정: "#98989D" };
 
 // 본문 패널 바깥(여백/화면 가장자리)인지 — 여기로 던지면 삭제
@@ -121,9 +131,9 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       data-row={idx} data-cage={cage.id}
       onPointerDown={(e) => canEdit && canDrag && onGrab(e, idx)}>
       <td className="mono strong c">{m.label}</td>
-      <td className="c">{m.g1 && <span className="gchip">{m.g1}</span>}</td>
-      <td className="c">{m.g2 && <span className="gchip">{m.g2}</span>}</td>
-      <td className="c">{m.g3 && <span className="gchip">{m.g3}</span>}</td>
+      <td className="c">{m.g1 && <span className={"gchip g-" + (m.g1 || "").toUpperCase()} data-tip={`${cage.g1_label || "G1"} · ${genoTip(m.g1)}`}>{m.g1}</span>}</td>
+      <td className="c">{m.g2 && <span className={"gchip g-" + (m.g2 || "").toUpperCase()} data-tip={`${cage.g2_label || "G2"} · ${genoTip(m.g2)}`}>{m.g2}</span>}</td>
+      <td className="c">{m.g3 && <span className={"gchip g-" + (m.g3 || "").toUpperCase()} data-tip={`${cage.g3_label || "G3"} · ${genoTip(m.g3)}`}>{m.g3}</span>}</td>
       <td className="mono c dob-cell">
         <span className="dob-wrap">
           <span className="dob-date">{m.dob}</span>
@@ -153,7 +163,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const deleteCage = async () => {
     const ok = await confirm({
       title: "케이지를 삭제할까요?",
-      body: `${cage.label} · 소속 Mouse ${mice.length}마리가 함께 삭제됩니다.`,
+      body: `${cage.label} · 소속 mouse ${mice.length}마리가 함께 삭제됩니다.`,
     });
     if (ok) await cageOps.remove(cage.id, me, `케이지 ${cage.label}`);
     return ok;
@@ -406,6 +416,11 @@ function AppInner() {
   const askText = usePrompt();
   const [showDone, setShowDone] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [intro, setIntro] = useState(() => shouldShowIntro());
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
+  const people = usePresence(readChatName(), canEdit);
   useEffect(() => {
     if (!hasConfig) return;
     supabase.auth.getSession().then(({ data }) => setCanEdit(!!data.session));
@@ -477,6 +492,16 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
             <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
+            <span className="clock" title="현재 시각">
+              {now.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", "")}
+              {" "}{now.toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+              {" "}{now.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit", hour12: true })}
+            </span>
+            <span className={"presence" + (people.length ? "" : " off")}
+              title={people.length ? people.map((p) => p.name + (p.editor ? " (편집 중)" : "")).join(", ") : "실시간 연결 중"}>
+              <span className="dot-live" /> <Users size={13} />
+              {people.length ? `${people.length}명 접속` : "연결 중"}
+            </span>
             <button className={"btn " + (canEdit ? "btn-p" : "btn-s")} onClick={toggleEdit}>
               {canEdit ? <><Unlock size={14} /> 편집 중</> : <><Lock size={14} /> 편집</>}
             </button>
@@ -582,8 +607,14 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-        마우스 현황 실시간 업데이트는 이곳에서 관리합니다.
+       마우스 관리 웹사이트 베타버전. 
       </div></footer>
+      {intro && <IntroModal onClose={() => setIntro(false)} />}
+      {chatOpen
+        ? <ChatPanel onClose={() => setChatOpen(false)} askName={askText} />
+        : <button className="chat-fab" title="참여자 대화" onClick={() => setChatOpen(true)}>
+            <MessageCircle size={22} />
+          </button>}
     </div>
     </EditCtx.Provider>
     </AgeUnitCtx.Provider>
