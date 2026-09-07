@@ -378,13 +378,13 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .chat-fab:active{transform:translateY(0)}
 @media (max-width:760px){.chat-fab{right:14px;bottom:14px;width:50px;height:50px}}
 
-/* 지노타이핑 중 — 카드는 그대로, 배지로만 표시 */
-.geno-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
-  color:var(--t2);background:var(--surface);border:1px solid var(--sep);
-  border-radius:980px;padding:3px 10px}
-.geno-badge svg{color:#C2610B}
-.iconbtn.on{color:#C2610B}
-.iconbtn.on:hover{background:var(--bg);color:#C2610B}
+/* 지노타이핑 중 */
+.geno-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+  color:#8A5316;background:#FDF3E3;border-radius:980px;padding:3px 10px}
+.cage.genotyping{border-color:#F0D9AE;box-shadow:0 0 0 1px #F7E7C9 inset}
+.cage.genotyping .cage-head{background:#FFFCF6}
+.iconbtn.on{color:#C2610B;background:#FDF3E3}
+.iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
 
 
 
