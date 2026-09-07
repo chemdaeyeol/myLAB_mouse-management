@@ -207,6 +207,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
     if (e.button === 1 || e.button === 2) return;
     if (e.target.closest("button,input,select,textarea,a")) return;
     const touch = e.pointerType === "touch" || window.matchMedia("(hover: none)").matches;
+    if (touch) return;   // 모바일은 표 가로 스크롤 우선 (삭제는 휴지통 버튼으로)
     const st = { idx, x: e.clientX, y: e.clientY, active: false, mode: "move",
       overIdx: null, side: "above", touch };
     dragRef.current = st;
@@ -296,7 +297,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         )}
         <span className="ctype" style={{ background: t.color }}>{t.label}</span>
         {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
-        {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> 지노타이핑 중</span>}
+        {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> Genotyping 中</span>}
         {editCage ? (
           <div className="cage-edit">
             <input className="in" value={cf.label} onChange={(e) => setCf({ ...cf, label: e.target.value })} />
@@ -317,9 +318,9 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             <span className="cage-actions">
               {canEdit && (
                 <button className={"iconbtn" + (cage.genotyping ? " on" : "")}
-                  title={cage.genotyping ? "지노타이핑 완료" : "지노타이핑 중으로 표시"}
+                  title={cage.genotyping ? "Genotyping Done" : "Genotyping 中으로 표시"}
                   onClick={() => cageOps.update(cage.id, { genotyping: !cage.genotyping }, me,
-                    `케이지 ${cage.label} 지노타이핑 ${cage.genotyping ? "해제" : "시작"}`)}>
+                    `케이지 ${cage.label} Genotyping ${cage.genotyping ? "해제" : "시작"}`)}>
                   <FlaskConical size={14} />
                 </button>
               )}
@@ -341,7 +342,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       </div>
 
       {open && (
-        <table className="mtable">
+        <div className="tscroll"><table className="mtable">
           <thead>
             <tr>
               <th className="c" style={{ width: "11%" }}>Mouse</th>
@@ -373,7 +374,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
                 onSave={async (f) => { await ops.add({ ...f, cage_id: cage.id, sort: mice.length + 1 }, me, `${cage.label} / ${f.label}`); setEditing(null); }} />
             )}
           </tbody>
-        </table>
+        </table></div>
       )}
 
       {open && canEdit && editing !== "new" && (
@@ -556,8 +557,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
           <span className="stat">
-            케이지 {gCages.length} · mouse {totalMice}
-            {gCages.filter((c) => c.genotyping).length > 0 && ` · 지노타이핑 ${gCages.filter((c) => c.genotyping).length}`}
+            케이지 {gCages.length} · Mouse {totalMice}
+            {gCages.filter((c) => c.genotyping).length > 0 && ` · Genotyping ${gCages.filter((c) => c.genotyping).length}`}
             {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
           </span>
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
@@ -617,7 +618,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-       마우스 관리 웹사이트 베타버전.
+       마우스 관리 웹사이트 베타버전
       </div></footer>
       {intro && <IntroModal onClose={() => setIntro(false)} />}
       {chatOpen
