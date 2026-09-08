@@ -21,6 +21,16 @@ const CAGE_TYPES = {
   ihc: { label: "IHC", color: "#0F7C8A" },
   other: { label: "기타", color: "#86868B" },
 };
+// 실험 상태 태그 (여러 개 동시 선택 가능)
+const EXP_TAGS = [
+  { key: "genotyping", label: "Genotyping",  color: "#8A5316", bg: "#FDF3E3" },
+  { key: "tam",        label: "TAM Treatment",    color: "#5B37A7", bg: "#EFEAFB" },
+  { key: "dox",        label: "DOX Treatment",    color: "#12509B", bg: "#E8F1FD" },
+  { key: "weaning",    label: "이유 예정",    color: "#166B3C", bg: "#E8F6ED" },
+  { key: "waiting",    label: "실험 대기",    color: "#5A6470", bg: "#EFF1F4" },
+];
+const tagInfo = (k) => EXP_TAGS.find((t) => t.key === k);
+
 const GENO_TIP = {
   HM: "Homozygous",
   HT: "Heterozygous",
@@ -171,6 +181,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const [open, setOpen] = useState(!cage.done);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
+  const [tagMenu, setTagMenu] = useState(false);
   const [drag, setDrag] = useState(null); // {idx,dx,dy,mode,overIdx,side}
   const dragRef = useRef(null);
   const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type });
@@ -287,7 +298,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   if (q && list.length === 0) return null;
 
   return (
-    <div className={"cage" + (cage.done ? " done" : "") + (cage.genotyping ? " genotyping" : "") + (dragCage?.isDragging ? " dragging" : "") +
+    <div className={"cage" + (cage.done ? " done" : "") + ((cage.tags || []).length ? " tagged" : "") + (dragCage?.isDragging ? " dragging" : "") +
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
@@ -314,17 +325,44 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-status">
-              {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> Genotyping 中</span>}
+              {(cage.tags || []).map((k) => {
+                const t = tagInfo(k); if (!t) return null;
+                return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg }}>{t.label}</span>;
+              })}
               {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
             </span>
             <span className="cage-actions">
               {canEdit && (
-                <button className={"iconbtn" + (cage.genotyping ? " on" : "")}
-                  title={cage.genotyping ? "Genotyping Done" : "Genotyping 中으로 표시"}
-                  onClick={() => cageOps.update(cage.id, { genotyping: !cage.genotyping }, me,
-                    `케이지 ${cage.label} Genotyping ${cage.genotyping ? "해제" : "시작"}`)}>
-                  <FlaskConical size={14} />
-                </button>
+                <span className="tagmenu-wrap">
+                  <button className={"iconbtn" + ((cage.tags || []).length ? " on" : "")}
+                    title="실험 상태 선택" onClick={() => setTagMenu((v) => !v)}>
+                    <FlaskConical size={14} />
+                  </button>
+                  {tagMenu && (
+                    <>
+                      <div className="tagmenu-back" onClick={() => setTagMenu(false)} />
+                      <div className="tagmenu">
+                        <div className="tagmenu-t">실험 상태</div>
+                        {EXP_TAGS.map((t) => {
+                          const on = (cage.tags || []).includes(t.key);
+                          return (
+                            <button key={t.key} className={"tagmenu-item" + (on ? " on" : "")}
+                              onClick={() => {
+                                const cur = cage.tags || [];
+                                const next = on ? cur.filter((x) => x !== t.key) : [...cur, t.key];
+                                cageOps.update(cage.id, { tags: next }, me,
+                                  `케이지 ${cage.label} · ${t.label} ${on ? "해제" : "설정"}`);
+                              }}>
+                              <span className="tagmenu-dot" style={{ background: t.color }} />
+                              {t.label}
+                              {on && <Check size={14} className="tagmenu-check" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </span>
               )}
               {canEdit && cage.grp === "behavior" && (
                 <button className="iconbtn" title={cage.done ? "완료 취소" : "실험 완료로 표시"}
@@ -347,7 +385,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <div className="tscroll"><table className="mtable">
           <thead>
             <tr>
-              <th className="c" style={{ width: "11%" }}>개체</th>
+              <th className="c" style={{ width: "11%" }}>Mouse</th>
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
@@ -380,7 +418,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       )}
 
       {open && canEdit && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
     </div>
   );
@@ -501,7 +539,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
         <div className="wrap top-in">
           <div>
             <h1>Mouse Management</h1>
-            <p className="sub">Cage · Mouse list (LIVE UPDATE)</p>
+            <p className="sub">Mouse Cage & Mouse list (LIVE UPDATE)</p>
           </div>
           <div className="who">
             <span className="clock" title="현재 시각">
@@ -560,7 +598,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           </div>
           <span className="stat">
             케이지 {gCages.length} · Mouse {totalMice}
-            {gCages.filter((c) => c.genotyping).length > 0 && ` · Genotyping ${gCages.filter((c) => c.genotyping).length}`}
+            {EXP_TAGS.map((t) => {
+              const n = gCages.filter((c) => (c.tags || []).includes(t.key)).length;
+              return n ? ` · ${t.label} ${n}` : "";
+            }).join("")}
             {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
           </span>
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}

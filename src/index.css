@@ -381,13 +381,27 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .chat-fab:active{transform:translateY(0)}
 @media (max-width:760px){.chat-fab{right:14px;bottom:14px;width:50px;height:50px}}
 
-/* 지노타이핑 중 */
-.geno-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
-  color:#8A5316;background:#FDF3E3;border-radius:980px;padding:3px 10px}
-.cage.genotyping{border-color:#F0D9AE;box-shadow:0 0 0 1px #F7E7C9 inset}
-.cage.genotyping .cage-head{background:#FFFCF6}
+/* 실험 상태 태그 */
+.tag-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;
+  border-radius:980px;padding:3px 10px;white-space:nowrap}
+.cage.tagged .cage-head{background:var(--surface-2)}
 .iconbtn.on{color:#C2610B;background:#FDF3E3}
 .iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
+
+/* 실험 상태 선택 팝오버 */
+.tagmenu-wrap{position:relative;display:inline-flex}
+.tagmenu-back{position:fixed;inset:0;z-index:60}
+.tagmenu{position:absolute;top:calc(100% + 8px);right:0;z-index:61;min-width:186px;
+  background:var(--surface);border:1px solid var(--sep-soft);border-radius:14px;padding:6px;
+  box-shadow:0 18px 44px -14px rgba(50,45,40,.35);animation:pop .14s cubic-bezier(.2,.9,.3,1.1)}
+.tagmenu-t{font-size:11px;font-weight:600;color:var(--t3);padding:7px 10px 5px}
+.tagmenu-item{display:flex;align-items:center;gap:9px;width:100%;background:none;border:none;
+  font-family:inherit;font-size:13.5px;color:var(--t1);text-align:left;
+  padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .13s}
+.tagmenu-item:hover{background:var(--bg)}
+.tagmenu-item.on{font-weight:600}
+.tagmenu-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.tagmenu-check{margin-left:auto;color:var(--blue)}
 
 
 
