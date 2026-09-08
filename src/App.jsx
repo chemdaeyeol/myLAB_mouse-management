@@ -314,7 +314,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-status">
-              {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> 지노타이핑 중</span>}
+              {cage.genotyping && <span className="geno-badge"><FlaskConical size={12} /> Genotyping 中</span>}
               {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
             </span>
             <span className="cage-actions">
@@ -380,7 +380,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       )}
 
       {open && canEdit && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
       )}
     </div>
   );

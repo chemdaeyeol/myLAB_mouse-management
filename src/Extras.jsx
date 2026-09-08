@@ -127,7 +127,7 @@ export function IntroModal({ onClose }) {
           오늘 하루 보지 않기
         </label>
         <div className="modal-actions">
-          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>시작하기</button>
+          <button className="btn btn-p" style={{ flex: 1 }} onClick={close}>확인</button>
         </div>
       </div>
     </div>
