@@ -5,15 +5,10 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 export function useScrollLock(active) {
   useEffect(() => {
     if (!active) return;
-    const sbw = window.innerWidth - document.documentElement.clientWidth;
+    // 스크롤바 자리는 CSS의 scrollbar-gutter 로 항상 확보해 두므로 여백 보정이 필요 없다
     const prevOverflow = document.body.style.overflow;
-    const prevPad = document.body.style.paddingRight;
     document.body.style.overflow = "hidden";
-    if (sbw > 0) document.body.style.paddingRight = `${sbw}px`;   // 스크롤바 사라질 때 밀림 방지
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPad;
-    };
+    return () => { document.body.style.overflow = prevOverflow; };
   }, [active]);
 }
 
