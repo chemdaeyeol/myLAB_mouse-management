@@ -25,8 +25,8 @@ const CAGE_TYPES = {
 const EXP_TAGS = [
   { key: "genotyping", label: "Genotyping",  color: "#8A5316", bg: "#FDF3E3" },
   { key: "tam",        label: "TAM Treatment",    color: "#5B37A7", bg: "#EFEAFB" },
-  { key: "dox",        label: "Dox Treatment",    color: "#12509B", bg: "#E8F1FD" },
-  { key: "weaning",    label: "Dox 예정",    color: "#166B3C", bg: "#E8F6ED" },
+  { key: "dox",        label: "DOX Treatment",    color: "#12509B", bg: "#E8F1FD" },
+  { key: "weaning",    label: "DOX 예정",    color: "#166B3C", bg: "#E8F6ED" },
   { key: "waiting",    label: "실험 대기",    color: "#5A6470", bg: "#EFF1F4" },
 ];
 const tagInfo = (k) => EXP_TAGS.find((t) => t.key === k);
@@ -179,6 +179,34 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
 }
 
 /* ---------------- 투여 스케줄 ---------------- */
+const SCHED_STATUS = ["예정", "진행중", "완료"];
+const statusClass = (st) => (st === "완료" ? "s-done" : st === "진행중" ? "s-run" : "s-plan");
+
+// 상태 배지: 클릭하면 예정·진행중·완료를 직접 선택
+function StatusBadge({ value, onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="stat-wrap">
+      <button className={"dstat " + statusClass(value)} disabled={disabled}
+        onClick={() => !disabled && setOpen((v) => !v)}>{value}</button>
+      {open && (
+        <>
+          <div className="tagmenu-back" onClick={() => setOpen(false)} />
+          <div className="statmenu">
+            {SCHED_STATUS.map((st) => (
+              <button key={st} className={"statmenu-item" + (st === value ? " on" : "")}
+                onClick={() => { setOpen(false); if (st !== value) onChange(st); }}>
+                <span className={"dstat " + statusClass(st)}>{st}</span>
+                {st === value && <Check size={14} className="tagmenu-check" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 // 케이지에 배정된 스케줄: 접힌 요약 → 클릭하면 회차 펼침
 function CageSched({ cage, scheds, cycles, ops, me }) {
   const canEdit = useContext(EditCtx);
@@ -190,7 +218,6 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
   const done = mine.filter((r) => r.status === "완료").length;
   const cur = mine.find((r) => r.status === "진행중");
   const next = mine.find((r) => r.status === "예정");
-  const nextStatus = (st) => (st === "예정" ? "진행중" : st === "진행중" ? "완료" : "예정");
 
   return (
     <div className="csched">
@@ -205,14 +232,11 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
       </button>
       {open && (
         <div className="csched-list">
-          {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 회차가 없어요.</p>}
+          {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 Cycle이 없어요.</p>}
           {mine.map((r) => (
             <div key={r.id} className="csched-row">
-              <button className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")}
-                disabled={!canEdit}
-                onClick={() => ops.update(r.id, { status: nextStatus(r.status) }, me, `${sched.name} ${r.cycle} → ${nextStatus(r.status)}`)}>
-                {r.status}
-              </button>
+              <StatusBadge value={r.status} disabled={!canEdit}
+                onChange={(st) => ops.update(r.id, { status: st }, me, `${sched.name} ${r.cycle} → ${st}`)} />
               <span className="csched-cycle">{r.cycle}</span>
               <span className="mono csched-date">{r.dates}</span>
               {r.dose && <span className="sched-dose">{r.dose}</span>}
@@ -244,7 +268,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
         <div className="lib-modal-head">
           <CalendarDays size={17} />
           <b>투여 스케줄</b>
-          <span className="dox-sum">{scheds.length}개 · 케이지별로 배정</span>
+          <span className="dox-sum">{scheds.length}개 · 해당하는 케이지에 배정</span>
           <button className="iconbtn" onClick={onClose}><X size={17} /></button>
         </div>
         <div className="lib-modal-body">
@@ -263,7 +287,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                     <button className="iconbtn danger" title="스케줄 삭제"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        const ok = await confirm({ title: "스케줄을 삭제할까요?", body: `${sc.name} · 회차 ${mine.length}건이 함께 삭제됩니다.` });
+                        const ok = await confirm({ title: "스케줄을 삭제할까요?", body: `${sc.name} · Cycle ${mine.length}건이 함께 삭제됩니다.` });
                         if (ok) await schedOps.remove(sc.id, me, `스케줄 ${sc.name} 삭제`);
                       }}><Trash2 size={14} /></button>
                   )}
@@ -275,7 +299,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                     <div className="lib-sub">Cycle</div>
                     {mine.map((r) => (
                       <div key={r.id} className="csched-row">
-                        <span className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")}>{r.status}</span>
+                        <StatusBadge value={r.status} disabled={!canEdit}
+                          onChange={(st) => cycleOps.update(r.id, { status: st }, me, `${sc.name} ${r.cycle} → ${st}`)} />
                         <span className="csched-cycle">{r.cycle}</span>
                         <span className="mono csched-date">{r.dates}</span>
                         {r.dose && <span className="sched-dose">{r.dose}</span>}
@@ -587,7 +612,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
       )}
 
       {open && canEdit && editing !== "new" && (
-        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
+        <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
       )}
 
       {open && <CageSched cage={cage} scheds={scheds} cycles={doxRows} ops={doxOps} me={me} />}
@@ -738,7 +763,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           <div className="search">
             <Search size={15} />
             <input className="in" value={q} onChange={(e) => setQ(e.target.value)}
-              placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
+              placeholder="Mouse · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
           <button className="tool-icon" data-tip="투여 스케줄 · 케이지에 배정"

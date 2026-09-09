@@ -512,3 +512,13 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .tool-icon[data-tip]:hover::before{
   content:"";position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);
   border:5px solid transparent;border-bottom-color:#1D1D1F;z-index:70;pointer-events:none}
+
+/* 상태 선택 메뉴 */
+.stat-wrap{position:relative;display:inline-flex;flex-shrink:0}
+.statmenu{position:absolute;top:calc(100% + 7px);left:0;z-index:61;min-width:132px;
+  background:var(--surface);border:1px solid var(--sep-soft);border-radius:12px;padding:5px;
+  box-shadow:0 16px 40px -14px rgba(50,45,40,.35);animation:pop .13s cubic-bezier(.2,.9,.3,1.1)}
+.statmenu-item{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
+  padding:6px 7px;border-radius:8px;cursor:pointer;font-family:inherit}
+.statmenu-item:hover{background:var(--bg)}
+.statmenu-item .dstat{cursor:pointer}
