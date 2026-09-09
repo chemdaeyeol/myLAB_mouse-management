@@ -37,11 +37,8 @@ const asTags = (v) => {
   return [];
 };
 // 첫 번째 태그 색으로 카드 테두리를 은은하게
-const tagStyle = (tags) => {
-  const t = tagInfo(asTags(tags)[0]);
-  // 왼쪽 색 띠 + 옅은 테두리로 한눈에 구분
-  return t ? { borderColor: t.color + "55", boxShadow: `inset 5px 0 0 ${t.color}` } : undefined;
-};
+// 카드 자체에는 색을 넣지 않는다 (상태는 오른쪽 배지로만 표시)
+const tagStyle = () => undefined;
 
 const GENO_TIP = {
   HM: "Homozygous",
