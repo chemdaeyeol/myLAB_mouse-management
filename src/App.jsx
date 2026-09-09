@@ -766,8 +766,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="Mouse · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
-          <button className="tool-icon" data-tip="투여 스케줄 · 케이지에 배정"
-            aria-label="투여 스케줄" onClick={() => setSchedOpen(true)}>
+          <button className="tool-icon" data-tip="Treatment Schedule"
+            aria-label="Treatment Schedule" onClick={() => setSchedOpen(true)}>
             <CalendarDays size={17} />
           </button>
           <span className="stat">
