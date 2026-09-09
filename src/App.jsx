@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical, CalendarDays,
 } from "lucide-react";
 import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
@@ -226,15 +226,12 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
 }
 
 // 스케줄 관리: 목록 · 회차 편집 · 케이지 배정
-function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }) {
+function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, onClose }) {
   const canEdit = useContext(EditCtx);
   const confirm = useConfirm();
   const askText = usePrompt();
-  const [open, setOpen] = useState(false);
   const [expand, setExpand] = useState(null);
   const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
-
-  if (scheds.length === 0 && !canEdit) return null;
 
   const addSched = async () => {
     const name = await askText({ title: "새 투여 스케줄", body: "스케줄 이름을 입력하세요.", placeholder: "예: DOX 0.15mg 3일 사이클", okText: "만들기" });
@@ -242,15 +239,16 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }
   };
 
   return (
-    <div className="panel lib">
-      <div className="panel-head">
-        <h3>투여 스케줄</h3>
-        <span className="dox-sum">{scheds.length}개 · 케이지에 배정해 사용</span>
-        <button className="btn btn-s" onClick={() => setOpen((v) => !v)}>{open ? "접기" : "관리"}</button>
-      </div>
-
-      {open && (
-        <>
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal lib-modal" role="dialog" aria-modal="true">
+        <div className="lib-modal-head">
+          <CalendarDays size={17} />
+          <b>투여 스케줄</b>
+          <span className="dox-sum">{scheds.length}개 · 케이지별로 배정</span>
+          <button className="iconbtn" onClick={onClose}><X size={17} /></button>
+        </div>
+        <div className="lib-modal-body">
+          {scheds.length === 0 && <p className="muted" style={{ padding: "10px 2px" }}>등록된 스케줄이 없어요.</p>}
           {scheds.map((sc) => {
             const mine = cycles.filter((r) => r.sched_id === sc.id);
             const applied = cages.filter((c) => c.sched_id === sc.id);
@@ -274,7 +272,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }
 
                 {on && (
                   <div className="lib-body">
-                    <div className="lib-sub">회차</div>
+                    <div className="lib-sub">Cycle</div>
                     {mine.map((r) => (
                       <div key={r.id} className="csched-row">
                         <span className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")}>{r.status}</span>
@@ -301,9 +299,9 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }
                               sched_id: sc.id, cycle: f.cycle.trim() || `${mine.length + 1}차`,
                               dates: f.dates.trim(), dose: f.dose.trim(), note: f.note.trim(),
                               status: "예정", sort: mine.length + 1,
-                            }, me, `${sc.name} 회차 추가`);
+                            }, me, `${sc.name} Cycle 추가`);
                             setF({ cycle: "", dates: "", dose: "", note: "" });
-                          }}><Plus size={14} /> 회차 추가</button>
+                          }}><Plus size={14} /> Cycle 추가</button>
                       </div>
                     )}
 
@@ -331,8 +329,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }
             );
           })}
           {canEdit && <button className="sched-add" onClick={addSched}><Plus size={14} /> 새 스케줄</button>}
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -611,6 +609,7 @@ function AppInner() {
   const [showDone, setShowDone] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [schedOpen, setSchedOpen] = useState(false);
   const [intro, setIntro] = useState(() => shouldShowIntro());
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
@@ -742,6 +741,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               placeholder="개체 · 유전자형 · DOB 검색 (예: HM, IHC-x)" />
             {q && <button className="iconbtn" onClick={() => setQ("")}><X size={14} /></button>}
           </div>
+          <button className="tool-icon" data-tip="투여 스케줄 · 케이지에 배정"
+            aria-label="투여 스케줄" onClick={() => setSchedOpen(true)}>
+            <CalendarDays size={17} />
+          </button>
           <span className="stat">
             케이지 {gCages.length} · Mouse {totalMice}
             {EXP_TAGS.map((t) => {
@@ -753,8 +756,6 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
         </div>
 
-        <SchedLibrary me={me} scheds={scheds} schedOps={schedOps} cycles={doxRows}
-          cycleOps={doxOps} cages={gCages} cageOps={cageOps} />
 
         {cageOps.loading ? <p className="muted">불러오는 중…</p> :
           gCages.length === 0 ? <p className="muted">케이지가 없어요.</p> :
@@ -810,6 +811,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       <footer className="foot"><div className="wrap">
        마우스 관리 현황 웹사이트 베타버전
       </div></footer>
+      {schedOpen && (
+        <SchedLibrary me={me} scheds={scheds} schedOps={schedOps} cycles={doxRows}
+          cycleOps={doxOps} cages={gCages} cageOps={cageOps} onClose={() => setSchedOpen(false)} />
+      )}
       {intro && <IntroModal onClose={() => setIntro(false)} />}
       {chatOpen
         ? <ChatPanel onClose={() => setChatOpen(false)} askName={askText} />

@@ -46,13 +46,13 @@ body{margin:0;background:var(--page);color:var(--t1);font-family:var(--font);
 
 /* toolbar */
 .toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:26px 0 18px}
-.search{flex:1 1 320px;display:flex;align-items:center;gap:9px;background:var(--surface);
+.search{flex:0 1 440px;min-width:0;display:flex;align-items:center;gap:9px;background:var(--surface);
   border:1px solid var(--sep-soft);border-radius:12px;padding:0 14px;color:var(--t3);
   transition:border-color .15s ease,box-shadow .15s ease}
 .search:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.12)}
 .search .in{border:none;padding:11px 0;flex:1;background:none;border-radius:0}
 .search .in:focus,.search .in:focus-visible{box-shadow:none;border-color:transparent;outline:none}
-.stat{font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
+.stat{margin-left:auto;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums;text-align:right}
 
 /* controls */
 .in{border:1px solid var(--sep-soft);border-radius:10px;padding:9px 12px;font-family:inherit;
@@ -487,3 +487,28 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
   padding:6px 12px;cursor:pointer}
 .lib-cage.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-d);font-weight:600}
 .lib-cage input{accent-color:var(--blue)}
+
+/* 투여 스케줄 모달 */
+.modal.lib-modal{max-width:620px;width:100%;text-align:left;padding:0;overflow:hidden}
+.lib-modal-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
+  border-bottom:1px solid var(--sep-soft);font-size:15px}
+.lib-modal-head b{font-size:16px}
+.lib-modal-head .iconbtn{margin-left:auto}
+.lib-modal-body{padding:6px 20px 20px;max-height:min(64vh,560px);overflow-y:auto}
+
+/* 툴바 아이콘 버튼 + 툴팁 */
+.tool-icon{display:inline-flex;align-items:center;justify-content:center;position:relative;
+  width:42px;height:42px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--sep-soft);color:var(--t2);cursor:pointer;
+  transition:background .14s,color .14s,border-color .14s;flex-shrink:0}
+.tool-icon:hover{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-d)}
+
+/* 공통 툴팁 (아이콘 아래로) */
+[data-tip]{position:relative}
+.tool-icon[data-tip]:hover::after{
+  content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);
+  background:#1D1D1F;color:#fff;font-size:12px;font-weight:400;padding:7px 11px;border-radius:8px;
+  white-space:nowrap;z-index:70;pointer-events:none;box-shadow:0 8px 22px -8px rgba(0,0,0,.45)}
+.tool-icon[data-tip]:hover::before{
+  content:"";position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-bottom-color:#1D1D1F;z-index:70;pointer-events:none}
