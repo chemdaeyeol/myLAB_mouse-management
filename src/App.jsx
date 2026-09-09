@@ -26,10 +26,15 @@ const EXP_TAGS = [
   { key: "genotyping", label: "Genotyping",  color: "#8A5316", bg: "#FDF3E3" },
   { key: "tam",        label: "TAM Treatment",    color: "#5B37A7", bg: "#EFEAFB" },
   { key: "dox",        label: "DOX Treatment",    color: "#12509B", bg: "#E8F1FD" },
-  { key: "weaning",    label: "이유 예정",    color: "#166B3C", bg: "#E8F6ED" },
+  { key: "weaning",    label: "Dox 예정",    color: "#166B3C", bg: "#E8F6ED" },
   { key: "waiting",    label: "실험 대기",    color: "#5A6470", bg: "#EFF1F4" },
 ];
 const tagInfo = (k) => EXP_TAGS.find((t) => t.key === k);
+// 첫 번째 태그 색으로 카드 테두리를 은은하게
+const tagStyle = (tags) => {
+  const t = tagInfo((tags || [])[0]);
+  return t ? { borderColor: t.bg, boxShadow: `0 0 0 1px ${t.bg} inset` } : undefined;
+};
 
 const GENO_TIP = {
   HM: "Homozygous",
@@ -167,6 +172,85 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
   );
 }
 
+function SchedSection({ cage, me }) {
+  const canEdit = useContext(EditCtx);
+  const confirm = useConfirm();
+  const [rows, ops] = useTable("mc_dox", ["sort"]);
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+
+  const mine = rows.filter((r) => r.cage_id === cage.id);
+  const tags = cage.tags || [];
+  const kind = tags.includes("tam") && !tags.includes("dox") ? "TAM" : "DOX";
+  if (!tags.includes("dox") && !tags.includes("tam") && mine.length === 0) return null;
+
+  const nextStatus = (st) => (st === "예정" ? "진행중" : st === "진행중" ? "완료" : "예정");
+  const done = mine.filter((r) => r.status === "완료").length;
+  const cur = mine.find((r) => r.status === "진행중");
+
+  const save = async () => {
+    if (!f.dates.trim() && !f.cycle.trim()) return;
+    await ops.add({
+      cage_id: cage.id, kind,
+      cycle: f.cycle.trim() || `${mine.length + 1}차`,
+      dates: f.dates.trim(), dose: f.dose.trim(), note: f.note.trim(),
+      status: "예정", sort: mine.length + 1,
+    }, me, `${cage.label} ${kind} 스케줄 추가`);
+    setF({ cycle: "", dates: "", dose: "", note: "" });
+    setAdding(false);
+  };
+
+  return (
+    <div className="sched">
+      <div className="sched-head">
+        <b>{kind} 투여 스케줄</b>
+        <span className="sched-sum">
+          {mine.length ? `완료 ${done} / 총 ${mine.length}` : "등록된 회차 없음"}
+          {cur ? ` · 진행 중 ${cur.dates || cur.cycle}` : ""}
+        </span>
+      </div>
+
+      {mine.map((r) => (
+        <div key={r.id} className="sched-row">
+          <button className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")} disabled={!canEdit}
+            onClick={() => ops.update(r.id, { status: nextStatus(r.status) }, me, `${cage.label} ${r.cycle} → ${nextStatus(r.status)}`)}>
+            {r.status}
+          </button>
+          <span className="sched-cycle">{r.cycle}</span>
+          <span className="mono sched-date">{r.dates}</span>
+          {r.dose && <span className="sched-dose">{r.dose}</span>}
+          {r.note && <span className="sched-note">{r.note}</span>}
+          {canEdit && (
+            <button className="iconbtn danger sched-del" title="삭제"
+              onClick={async () => {
+                const ok = await confirm({ title: "이 회차를 삭제할까요?", body: `${r.cycle} ${r.dates || ""}` });
+                if (ok) ops.remove(r.id, me, `${cage.label} ${r.cycle} 삭제`);
+              }}><Trash2 size={13} /></button>
+          )}
+        </div>
+      ))}
+
+      {canEdit && (adding ? (
+        <div className="sched-form">
+          <input className="in" style={{ maxWidth: 92 }} placeholder="1차" value={f.cycle}
+            onChange={(e) => setF({ ...f, cycle: e.target.value })} autoFocus />
+          <input className="in" style={{ maxWidth: 168 }} placeholder="26.08.19~21" value={f.dates}
+            onChange={(e) => setF({ ...f, dates: e.target.value })} />
+          <input className="in" style={{ maxWidth: 110 }} placeholder="0.15mg" value={f.dose}
+            onChange={(e) => setF({ ...f, dose: e.target.value })} />
+          <input className="in" placeholder="메모 (선택)" value={f.note}
+            onChange={(e) => setF({ ...f, note: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && save()} />
+          <button className="btn btn-s" onClick={() => setAdding(false)}><X size={14} /></button>
+          <button className="btn btn-p" onClick={save}><Check size={14} /> 추가</button>
+        </div>
+      ) : (
+        <button className="sched-add" onClick={() => setAdding(true)}><Plus size={14} /> 회차 추가</button>
+      ))}
+    </div>
+  );
+}
+
 function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   const confirm = useConfirm();
   const canEdit = useContext(EditCtx);
@@ -298,7 +382,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
   if (q && list.length === 0) return null;
 
   return (
-    <div className={"cage" + (cage.done ? " done" : "") + ((cage.tags || []).length ? " tagged" : "") + (dragCage?.isDragging ? " dragging" : "") +
+    <div style={tagStyle(cage.tags)}
+      className={"cage" + (cage.done ? " done" : "") + ((cage.tags || []).length ? " tagged" : "") + (dragCage?.isDragging ? " dragging" : "") +
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
@@ -420,6 +505,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
       {open && canEdit && editing !== "new" && (
         <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
+
+      {open && <SchedSection cage={cage} me={me} />}
     </div>
   );
 }
@@ -429,18 +516,20 @@ function DoxPanel({ me }) {
   const canEdit = useContext(EditCtx);
   const [rows, ops] = useTable("mc_dox", ["sort"]);
   const [open, setOpen] = useState(false);
-  const cur = rows.find((r) => r.status === "진행중");
-  const done = rows.filter((r) => r.status === "완료").length;
+  const list = rows.filter((r) => !r.cage_id);
+  const cur = list.find((r) => r.status === "진행중");
+  const done = list.filter((r) => r.status === "완료").length;
   const cycle = (r) => canEdit && ops.update(r.id, { status: r.status === "예정" ? "진행중" : r.status === "진행중" ? "완료" : "예정" }, me, `DOX ${r.dates}`);
+  if (list.length === 0) return null;
   return (
     <div className="panel dox">
       <div className="panel-head">
-        <h3>DOX 투여 스케줄</h3>
-        <span className="dox-sum">완료 {done} / 총 {rows.length}{cur ? ` · 진행 중 ${cur.dates}` : ""}</span>
+        <h3>미지정 DOX 스케줄</h3>
+        <span className="dox-sum">완료 {done} / 총 {list.length}{cur ? ` · 진행 중 ${cur.dates}` : ""}</span>
         <button className="btn btn-s" onClick={() => setOpen((v) => !v)}>{open ? "접기" : "전체 보기"}</button>
       </div>
       <div className="dox-list">
-        {(open ? rows : rows.filter((r) => r.status !== "완료").slice(0, 6)).map((r) => (
+        {(open ? list : list.filter((r) => r.status !== "완료").slice(0, 6)).map((r) => (
           <button key={r.id} className="dox-row" onClick={() => cycle(r)} title="클릭하면 예정 → 진행중 → 완료">
             <span className="dstat" style={{ background: DOX_STATUS[r.status] || "#8A97A5" }}>{r.status}</span>
             <span className="mono">{r.dates}</span>
