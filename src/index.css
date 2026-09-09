@@ -384,7 +384,6 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 /* 실험 상태 태그 */
 .tag-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:600;
   border:1px solid transparent;border-radius:980px;padding:3px 10px;white-space:nowrap}
-.cage.tagged .cage-head{background:var(--surface-2)}
 .iconbtn.on{color:#C2610B;background:#FDF3E3}
 .iconbtn.on:hover{background:#FBE9CE;color:#8A5316}
 

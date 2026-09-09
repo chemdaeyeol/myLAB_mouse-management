@@ -39,7 +39,8 @@ const asTags = (v) => {
 // 첫 번째 태그 색으로 카드 테두리를 은은하게
 const tagStyle = (tags) => {
   const t = tagInfo(asTags(tags)[0]);
-  return t ? { borderColor: t.bg, boxShadow: `0 0 0 1px ${t.bg} inset` } : undefined;
+  // 왼쪽 색 띠 + 옅은 테두리로 한눈에 구분
+  return t ? { borderColor: t.color + "55", boxShadow: `inset 5px 0 0 ${t.color}` } : undefined;
 };
 
 const GENO_TIP = {
