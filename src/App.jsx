@@ -25,14 +25,20 @@ const CAGE_TYPES = {
 const EXP_TAGS = [
   { key: "genotyping", label: "Genotyping",  color: "#8A5316", bg: "#FDF3E3" },
   { key: "tam",        label: "TAM Treatment",    color: "#5B37A7", bg: "#EFEAFB" },
-  { key: "dox",        label: "DOX Treatment",    color: "#12509B", bg: "#E8F1FD" },
+  { key: "dox",        label: "Dox Treatment",    color: "#12509B", bg: "#E8F1FD" },
   { key: "weaning",    label: "Dox 예정",    color: "#166B3C", bg: "#E8F6ED" },
   { key: "waiting",    label: "실험 대기",    color: "#5A6470", bg: "#EFF1F4" },
 ];
 const tagInfo = (k) => EXP_TAGS.find((t) => t.key === k);
+// tags 는 항상 배열로 다룬다 (문자열/널로 와도 안전하게)
+const asTags = (v) => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") return v.replace(/[{}"]/g, "").split(",").filter(Boolean);
+  return [];
+};
 // 첫 번째 태그 색으로 카드 테두리를 은은하게
 const tagStyle = (tags) => {
-  const t = tagInfo((tags || [])[0]);
+  const t = tagInfo(asTags(tags)[0]);
   return t ? { borderColor: t.bg, boxShadow: `0 0 0 1px ${t.bg} inset` } : undefined;
 };
 
@@ -172,15 +178,14 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
   );
 }
 
-function SchedSection({ cage, me }) {
+function SchedSection({ cage, me, rows, ops }) {
   const canEdit = useContext(EditCtx);
   const confirm = useConfirm();
-  const [rows, ops] = useTable("mc_dox", ["sort"]);
   const [adding, setAdding] = useState(false);
   const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
 
   const mine = rows.filter((r) => r.cage_id === cage.id);
-  const tags = cage.tags || [];
+  const tags = asTags(cage.tags);
   const kind = tags.includes("tam") && !tags.includes("dox") ? "TAM" : "DOX";
   if (!tags.includes("dox") && !tags.includes("tam") && mine.length === 0) return null;
 
@@ -251,7 +256,7 @@ function SchedSection({ cage, me }) {
   );
 }
 
-function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
+function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps }) {
   const confirm = useConfirm();
   const canEdit = useContext(EditCtx);
   const deleteCage = async () => {
@@ -383,7 +388,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
 
   return (
     <div style={tagStyle(cage.tags)}
-      className={"cage" + (cage.done ? " done" : "") + ((cage.tags || []).length ? " tagged" : "") + (dragCage?.isDragging ? " dragging" : "") +
+      className={"cage" + (cage.done ? " done" : "") + (asTags(cage.tags).length ? " tagged" : "") + (dragCage?.isDragging ? " dragging" : "") +
       (dragCage?.isOver ? (dragCage.side === "above" ? " drop-above" : " drop-below") : "")}
       onDragOver={dragCage?.onDragOver} onDrop={dragCage?.onDrop} onDragLeave={dragCage?.onDragLeave}>
       <div className="cage-head">
@@ -410,7 +415,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
             </span>
             <span className="cage-status">
-              {(cage.tags || []).map((k) => {
+              {asTags(cage.tags).map((k) => {
                 const t = tagInfo(k); if (!t) return null;
                 return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg }}>{t.label}</span>;
               })}
@@ -419,7 +424,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
             <span className="cage-actions">
               {canEdit && (
                 <span className="tagmenu-wrap">
-                  <button className={"iconbtn" + ((cage.tags || []).length ? " on" : "")}
+                  <button className={"iconbtn" + (asTags(cage.tags).length ? " on" : "")}
                     title="실험 상태 선택" onClick={() => setTagMenu((v) => !v)}>
                     <FlaskConical size={14} />
                   </button>
@@ -429,11 +434,11 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
                       <div className="tagmenu">
                         <div className="tagmenu-t">실험 상태</div>
                         {EXP_TAGS.map((t) => {
-                          const on = (cage.tags || []).includes(t.key);
+                          const on = asTags(cage.tags).includes(t.key);
                           return (
                             <button key={t.key} className={"tagmenu-item" + (on ? " on" : "")}
                               onClick={() => {
-                                const cur = cage.tags || [];
+                                const cur = asTags(cage.tags);
                                 const next = on ? cur.filter((x) => x !== t.key) : [...cur, t.key];
                                 cageOps.update(cage.id, { tags: next }, me,
                                   `케이지 ${cage.label} · ${t.label} ${on ? "해제" : "설정"}`);
@@ -506,15 +511,14 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage }) {
         <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
 
-      {open && <SchedSection cage={cage} me={me} />}
+      {open && <SchedSection cage={cage} me={me} rows={doxRows} ops={doxOps} />}
     </div>
   );
 }
 
 /* ---------------- DOX schedule ---------------- */
-function DoxPanel({ me }) {
+function DoxPanel({ me, rows, ops }) {
   const canEdit = useContext(EditCtx);
-  const [rows, ops] = useTable("mc_dox", ["sort"]);
   const [open, setOpen] = useState(false);
   const list = rows.filter((r) => !r.cage_id);
   const cur = list.find((r) => r.status === "진행중");
@@ -587,6 +591,7 @@ function AppInner() {
   });
   const [cages, cageOps] = useTable("mc_cages", ["grp", "sort"]);
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
+  const [doxRows, doxOps] = useTable("mc_dox", ["sort"]);
   const [logs] = useTable("mc_log", []);
 
 
@@ -688,7 +693,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           <span className="stat">
             케이지 {gCages.length} · Mouse {totalMice}
             {EXP_TAGS.map((t) => {
-              const n = gCages.filter((c) => (c.tags || []).includes(t.key)).length;
+              const n = gCages.filter((c) => asTags(c.tags).includes(t.key)).length;
               return n ? ` · ${t.label} ${n}` : "";
             }).join("")}
             {doneCages.length > 0 && ` · 완료 ${doneCages.length}`}
@@ -696,7 +701,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
         </div>
 
-        {grp === "gfap" && <DoxPanel me={me} />}
+        {grp === "gfap" && <DoxPanel me={me} rows={doxRows} ops={doxOps} />}
 
         {cageOps.loading ? <p className="muted">불러오는 중…</p> :
           gCages.length === 0 ? <p className="muted">케이지가 없어요.</p> :
@@ -709,7 +714,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               </div>
             ) :
             gCages.map((c, i) => (
-              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q}
+              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps}
                 dragCage={{
                   isDragging: cDrag === i,
                   isOver: cOver === i && cDrag !== i,
@@ -743,7 +748,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               {showDone ? <ChevronUp size={16} /> : <ChevronDown size={16} />} 완료된 실험 {doneCages.length}건 {showDone ? "숨기기" : "보기"}
             </button>
             {showDone && doneCages.map((c) => (
-              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} />
+              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps} />
             ))}
           </div>
         )}
