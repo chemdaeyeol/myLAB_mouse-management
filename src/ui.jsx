@@ -1,5 +1,21 @@
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
+
+/* 팝업이 열려 있는 동안 뒤 화면 스크롤 잠금 */
+export function useScrollLock(active) {
+  useEffect(() => {
+    if (!active) return;
+    const sbw = window.innerWidth - document.documentElement.clientWidth;
+    const prevOverflow = document.body.style.overflow;
+    const prevPad = document.body.style.paddingRight;
+    document.body.style.overflow = "hidden";
+    if (sbw > 0) document.body.style.paddingRight = `${sbw}px`;   // 스크롤바 사라질 때 밀림 방지
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPad;
+    };
+  }, [active]);
+}
 
 /* ---------------- 확인 팝업 (브라우저 confirm 대체) ---------------- */
 const ConfirmCtx = createContext(() => Promise.resolve(false));
@@ -19,6 +35,8 @@ export function ConfirmProvider({ children }) {
     const o = typeof opts === "string" ? { title: opts } : opts || {};
     return new Promise((resolve) => setAsk({ value: "", ...o, resolve }));
   }, []);
+
+  useScrollLock(!!state || !!ask);
 
   const close = (v) => { state?.resolve(v); setState(null); };
   const closeAsk = (v) => { ask?.resolve(v); setAsk(null); };

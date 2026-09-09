@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, X, MessageCircle } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { useScrollLock } from "./ui.jsx";
 
 const NAME_KEY = "mc_chat_name";
 export const readChatName = () => { try { return localStorage.getItem(NAME_KEY) || ""; } catch { return ""; } };
@@ -100,6 +101,7 @@ const INTRO_KEY = "mc_intro_hidden_until";
 export function IntroModal({ onClose }) {
   const [hide, setHide] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  useScrollLock(true);
   const close = () => {
     if (leaving) return;
     if (hide) {
@@ -114,7 +116,7 @@ export function IntroModal({ onClose }) {
       onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className={"modal intro" + (leaving ? " suck" : "")} role="dialog" aria-modal="true">
         <h3 className="modal-title">Mouse Management Website (Beta)</h3>
-        <p className="modal-body">마우스 관리 현황을 볼 수 있는 웹페이지에요</p>
+        <p className="modal-body">마우스 관리 현황을 쉽게 볼 수 있어요</p>
         <ul className="intro-list">
           <li><b>탭</b> - 현재 관리중인 Cage 탭을 볼 수 있어요</li>
           <li><b>검색</b> - 유전자형 · DOB 등을 검색할 수 있어요</li>

@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
-import { ConfirmProvider, useConfirm, usePrompt } from "./ui.jsx";
+import { ConfirmProvider, useConfirm, usePrompt, useScrollLock } from "./ui.jsx";
 import { ChatPanel, IntroModal, shouldShowIntro, usePresence, readChatName } from "./Extras.jsx";
 
 /* ---------------- constants ---------------- */
@@ -256,6 +256,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const askText = usePrompt();
   const [expand, setExpand] = useState(null);
   const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+  useScrollLock(true);
 
   const addSched = async () => {
     const name = await askText({ title: "새 투여 스케줄", body: "스케줄 이름을 입력하세요.", placeholder: "예: DOX 0.15mg 3일 사이클", okText: "만들기" });
@@ -282,7 +283,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                 <div className="lib-head" onClick={() => setExpand(on ? null : sc.id)}>
                   <span className="csched-kind">{sc.kind}</span>
                   <b>{sc.name}</b>
-                  <span className="dox-sum">회차 {mine.length} · 적용 {applied.length}개 케이지</span>
+                  <span className="dox-sum">Cycle {mine.length} · 적용 {applied.length}개 케이지</span>
                   {canEdit && (
                     <button className="iconbtn danger" title="스케줄 삭제"
                       onClick={async (e) => {
@@ -521,7 +522,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
             <span className="cage-status">
               {asTags(cage.tags).map((k) => {
                 const t = tagInfo(k); if (!t) return null;
-                return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg }}>{t.label}</span>;
+                return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg, borderColor: t.color + "40" }}>{t.label}</span>;
               })}
               {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
             </span>
