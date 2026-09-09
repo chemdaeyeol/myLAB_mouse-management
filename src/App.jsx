@@ -178,85 +178,166 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
   );
 }
 
-function SchedSection({ cage, me, rows, ops }) {
+/* ---------------- 투여 스케줄 ---------------- */
+// 케이지에 배정된 스케줄: 접힌 요약 → 클릭하면 회차 펼침
+function CageSched({ cage, scheds, cycles, ops, me }) {
   const canEdit = useContext(EditCtx);
-  const confirm = useConfirm();
-  const [adding, setAdding] = useState(false);
-  const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+  const [open, setOpen] = useState(false);
+  const sched = scheds.find((x) => x.id === cage.sched_id);
+  if (!sched) return null;
 
-  const mine = rows.filter((r) => r.cage_id === cage.id);
-  const tags = asTags(cage.tags);
-  const kind = tags.includes("tam") && !tags.includes("dox") ? "TAM" : "DOX";
-  if (!tags.includes("dox") && !tags.includes("tam") && mine.length === 0) return null;
-
-  const nextStatus = (st) => (st === "예정" ? "진행중" : st === "진행중" ? "완료" : "예정");
+  const mine = cycles.filter((r) => r.sched_id === sched.id);
   const done = mine.filter((r) => r.status === "완료").length;
   const cur = mine.find((r) => r.status === "진행중");
-
-  const save = async () => {
-    if (!f.dates.trim() && !f.cycle.trim()) return;
-    await ops.add({
-      cage_id: cage.id, kind,
-      cycle: f.cycle.trim() || `${mine.length + 1}차`,
-      dates: f.dates.trim(), dose: f.dose.trim(), note: f.note.trim(),
-      status: "예정", sort: mine.length + 1,
-    }, me, `${cage.label} ${kind} 스케줄 추가`);
-    setF({ cycle: "", dates: "", dose: "", note: "" });
-    setAdding(false);
-  };
+  const next = mine.find((r) => r.status === "예정");
+  const nextStatus = (st) => (st === "예정" ? "진행중" : st === "진행중" ? "완료" : "예정");
 
   return (
-    <div className="sched">
-      <div className="sched-head">
-        <b>{kind} 투여 스케줄</b>
-        <span className="sched-sum">
-          {mine.length ? `완료 ${done} / 총 ${mine.length}` : "등록된 회차 없음"}
-          {cur ? ` · 진행 중 ${cur.dates || cur.cycle}` : ""}
+    <div className="csched">
+      <button className="csched-bar" onClick={() => setOpen((v) => !v)}>
+        <span className="csched-kind">{sched.kind}</span>
+        <b>{sched.name}</b>
+        <span className="csched-sum">
+          완료 {done}/{mine.length}
+          {cur ? ` · 진행 중 ${cur.dates}` : next ? ` · 다음 ${next.dates}` : ""}
         </span>
-      </div>
-
-      {mine.map((r) => (
-        <div key={r.id} className="sched-row">
-          <button className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")} disabled={!canEdit}
-            onClick={() => ops.update(r.id, { status: nextStatus(r.status) }, me, `${cage.label} ${r.cycle} → ${nextStatus(r.status)}`)}>
-            {r.status}
-          </button>
-          <span className="sched-cycle">{r.cycle}</span>
-          <span className="mono sched-date">{r.dates}</span>
-          {r.dose && <span className="sched-dose">{r.dose}</span>}
-          {r.note && <span className="sched-note">{r.note}</span>}
-          {canEdit && (
-            <button className="iconbtn danger sched-del" title="삭제"
-              onClick={async () => {
-                const ok = await confirm({ title: "이 회차를 삭제할까요?", body: `${r.cycle} ${r.dates || ""}` });
-                if (ok) ops.remove(r.id, me, `${cage.label} ${r.cycle} 삭제`);
-              }}><Trash2 size={13} /></button>
-          )}
+        {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      </button>
+      {open && (
+        <div className="csched-list">
+          {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 회차가 없어요.</p>}
+          {mine.map((r) => (
+            <div key={r.id} className="csched-row">
+              <button className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")}
+                disabled={!canEdit}
+                onClick={() => ops.update(r.id, { status: nextStatus(r.status) }, me, `${sched.name} ${r.cycle} → ${nextStatus(r.status)}`)}>
+                {r.status}
+              </button>
+              <span className="csched-cycle">{r.cycle}</span>
+              <span className="mono csched-date">{r.dates}</span>
+              {r.dose && <span className="sched-dose">{r.dose}</span>}
+              {r.note && <span className="sched-note">{r.note}</span>}
+            </div>
+          ))}
         </div>
-      ))}
-
-      {canEdit && (adding ? (
-        <div className="sched-form">
-          <input className="in" style={{ maxWidth: 92 }} placeholder="1차" value={f.cycle}
-            onChange={(e) => setF({ ...f, cycle: e.target.value })} autoFocus />
-          <input className="in" style={{ maxWidth: 168 }} placeholder="26.08.19~21" value={f.dates}
-            onChange={(e) => setF({ ...f, dates: e.target.value })} />
-          <input className="in" style={{ maxWidth: 110 }} placeholder="0.15mg" value={f.dose}
-            onChange={(e) => setF({ ...f, dose: e.target.value })} />
-          <input className="in" placeholder="메모 (선택)" value={f.note}
-            onChange={(e) => setF({ ...f, note: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && save()} />
-          <button className="btn btn-s" onClick={() => setAdding(false)}><X size={14} /></button>
-          <button className="btn btn-p" onClick={save}><Check size={14} /> 추가</button>
-        </div>
-      ) : (
-        <button className="sched-add" onClick={() => setAdding(true)}><Plus size={14} /> 회차 추가</button>
-      ))}
+      )}
     </div>
   );
 }
 
-function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps }) {
+// 스케줄 관리: 목록 · 회차 편집 · 케이지 배정
+function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps }) {
+  const canEdit = useContext(EditCtx);
+  const confirm = useConfirm();
+  const askText = usePrompt();
+  const [open, setOpen] = useState(false);
+  const [expand, setExpand] = useState(null);
+  const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+
+  if (scheds.length === 0 && !canEdit) return null;
+
+  const addSched = async () => {
+    const name = await askText({ title: "새 투여 스케줄", body: "스케줄 이름을 입력하세요.", placeholder: "예: DOX 0.15mg 3일 사이클", okText: "만들기" });
+    if (name) await schedOps.add({ name, kind: "DOX" }, me, `스케줄 ${name} 생성`);
+  };
+
+  return (
+    <div className="panel lib">
+      <div className="panel-head">
+        <h3>투여 스케줄</h3>
+        <span className="dox-sum">{scheds.length}개 · 케이지에 배정해 사용</span>
+        <button className="btn btn-s" onClick={() => setOpen((v) => !v)}>{open ? "접기" : "관리"}</button>
+      </div>
+
+      {open && (
+        <>
+          {scheds.map((sc) => {
+            const mine = cycles.filter((r) => r.sched_id === sc.id);
+            const applied = cages.filter((c) => c.sched_id === sc.id);
+            const on = expand === sc.id;
+            return (
+              <div key={sc.id} className="lib-item">
+                <div className="lib-head" onClick={() => setExpand(on ? null : sc.id)}>
+                  <span className="csched-kind">{sc.kind}</span>
+                  <b>{sc.name}</b>
+                  <span className="dox-sum">회차 {mine.length} · 적용 {applied.length}개 케이지</span>
+                  {canEdit && (
+                    <button className="iconbtn danger" title="스케줄 삭제"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const ok = await confirm({ title: "스케줄을 삭제할까요?", body: `${sc.name} · 회차 ${mine.length}건이 함께 삭제됩니다.` });
+                        if (ok) await schedOps.remove(sc.id, me, `스케줄 ${sc.name} 삭제`);
+                      }}><Trash2 size={14} /></button>
+                  )}
+                  {on ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </div>
+
+                {on && (
+                  <div className="lib-body">
+                    <div className="lib-sub">회차</div>
+                    {mine.map((r) => (
+                      <div key={r.id} className="csched-row">
+                        <span className={"dstat " + (r.status === "완료" ? "s-done" : r.status === "진행중" ? "s-run" : "s-plan")}>{r.status}</span>
+                        <span className="csched-cycle">{r.cycle}</span>
+                        <span className="mono csched-date">{r.dates}</span>
+                        {r.dose && <span className="sched-dose">{r.dose}</span>}
+                        {canEdit && (
+                          <button className="iconbtn danger" style={{ marginLeft: "auto" }}
+                            onClick={() => cycleOps.remove(r.id, me, `${sc.name} ${r.cycle} 삭제`)}><Trash2 size={13} /></button>
+                        )}
+                      </div>
+                    ))}
+                    {canEdit && (
+                      <div className="sched-form">
+                        <input className="in" style={{ maxWidth: 88 }} placeholder="1차" value={f.cycle}
+                          onChange={(e) => setF({ ...f, cycle: e.target.value })} />
+                        <input className="in" style={{ maxWidth: 160 }} placeholder="26.09.08~10" value={f.dates}
+                          onChange={(e) => setF({ ...f, dates: e.target.value })} />
+                        <input className="in" style={{ maxWidth: 104 }} placeholder="0.15mg" value={f.dose}
+                          onChange={(e) => setF({ ...f, dose: e.target.value })} />
+                        <button className="btn btn-p" disabled={!f.dates.trim() && !f.cycle.trim()}
+                          onClick={async () => {
+                            await cycleOps.add({
+                              sched_id: sc.id, cycle: f.cycle.trim() || `${mine.length + 1}차`,
+                              dates: f.dates.trim(), dose: f.dose.trim(), note: f.note.trim(),
+                              status: "예정", sort: mine.length + 1,
+                            }, me, `${sc.name} 회차 추가`);
+                            setF({ cycle: "", dates: "", dose: "", note: "" });
+                          }}><Plus size={14} /> 회차 추가</button>
+                      </div>
+                    )}
+
+                    {canEdit && (
+                      <>
+                        <div className="lib-sub">적용 케이지</div>
+                        <div className="lib-cages">
+                          {cages.map((c) => {
+                            const checked = c.sched_id === sc.id;
+                            return (
+                              <label key={c.id} className={"lib-cage" + (checked ? " on" : "")}>
+                                <input type="checkbox" checked={checked}
+                                  onChange={() => cageOps.update(c.id, { sched_id: checked ? null : sc.id }, me,
+                                    `케이지 ${c.label} · ${sc.name} ${checked ? "해제" : "배정"}`)} />
+                                {c.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {canEdit && <button className="sched-add" onClick={addSched}><Plus size={14} /> 새 스케줄</button>}
+        </>
+      )}
+    </div>
+  );
+}
+
+function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, scheds }) {
   const confirm = useConfirm();
   const canEdit = useContext(EditCtx);
   const deleteCage = async () => {
@@ -511,42 +592,12 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps }
         <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> 개체 추가</button>
       )}
 
-      {open && <SchedSection cage={cage} me={me} rows={doxRows} ops={doxOps} />}
+      {open && <CageSched cage={cage} scheds={scheds} cycles={doxRows} ops={doxOps} me={me} />}
     </div>
   );
 }
 
 /* ---------------- DOX schedule ---------------- */
-function DoxPanel({ me, rows, ops }) {
-  const canEdit = useContext(EditCtx);
-  const [open, setOpen] = useState(false);
-  const list = rows.filter((r) => !r.cage_id);
-  const cur = list.find((r) => r.status === "진행중");
-  const done = list.filter((r) => r.status === "완료").length;
-  const cycle = (r) => canEdit && ops.update(r.id, { status: r.status === "예정" ? "진행중" : r.status === "진행중" ? "완료" : "예정" }, me, `DOX ${r.dates}`);
-  if (list.length === 0) return null;
-  return (
-    <div className="panel dox">
-      <div className="panel-head">
-        <h3>미지정 DOX 스케줄</h3>
-        <span className="dox-sum">완료 {done} / 총 {list.length}{cur ? ` · 진행 중 ${cur.dates}` : ""}</span>
-        <button className="btn btn-s" onClick={() => setOpen((v) => !v)}>{open ? "접기" : "전체 보기"}</button>
-      </div>
-      <div className="dox-list">
-        {(open ? list : list.filter((r) => r.status !== "완료").slice(0, 6)).map((r) => (
-          <button key={r.id} className="dox-row" onClick={() => cycle(r)} title="클릭하면 예정 → 진행중 → 완료">
-            <span className="dstat" style={{ background: DOX_STATUS[r.status] || "#8A97A5" }}>{r.status}</span>
-            <span className="mono">{r.dates}</span>
-            <span className="ddose">{r.dose}</span>
-            <span className="dcycle">{r.cycle}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- name gate ---------------- */
 /* ---------------- app ---------------- */
 function AppInner() {
   const [grp, setGrp] = useState("chd8");
@@ -592,6 +643,7 @@ function AppInner() {
   const [cages, cageOps] = useTable("mc_cages", ["grp", "sort"]);
   const [mice, ops] = useTable("mc_mice", ["cage_id", "sort"]);
   const [doxRows, doxOps] = useTable("mc_dox", ["sort"]);
+  const [scheds, schedOps] = useTable("mc_sched", ["created_at"]);
   const [logs] = useTable("mc_log", []);
 
 
@@ -701,7 +753,8 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
         </div>
 
-        {grp === "gfap" && <DoxPanel me={me} rows={doxRows} ops={doxOps} />}
+        <SchedLibrary me={me} scheds={scheds} schedOps={schedOps} cycles={doxRows}
+          cycleOps={doxOps} cages={gCages} cageOps={cageOps} />
 
         {cageOps.loading ? <p className="muted">불러오는 중…</p> :
           gCages.length === 0 ? <p className="muted">케이지가 없어요.</p> :
@@ -714,7 +767,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               </div>
             ) :
             gCages.map((c, i) => (
-              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps}
+              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps} scheds={scheds}
                 dragCage={{
                   isDragging: cDrag === i,
                   isOver: cOver === i && cDrag !== i,
@@ -748,7 +801,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
               {showDone ? <ChevronUp size={16} /> : <ChevronDown size={16} />} 완료된 실험 {doneCages.length}건 {showDone ? "숨기기" : "보기"}
             </button>
             {showDone && doneCages.map((c) => (
-              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps} />
+              <CageCard key={c.id} cage={c} mice={byCage[c.id] || []} ops={ops} cageOps={cageOps} me={me} q={q} doxRows={doxRows} doxOps={doxOps} scheds={scheds} />
             ))}
           </div>
         )}

@@ -442,26 +442,48 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
   .tscroll{margin-bottom:2px}
 }
 
-/* ---------- 케이지별 투여 스케줄 ---------- */
-.sched{border-top:1px solid var(--sep-soft);padding:14px 20px 16px;background:var(--surface-2)}
-.sched-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.sched-head b{font-size:13.5px;color:var(--t1)}
-.sched-sum{font-size:12px;color:var(--t2)}
-.sched-row{display:flex;align-items:center;gap:11px;padding:8px 0;border-top:1px solid var(--sep-soft);font-size:13.5px}
-.sched-row:first-of-type{border-top:none}
-.sched-cycle{font-weight:600;min-width:44px}
-.sched-date{color:var(--t2);font-size:12.5px}
-.sched-dose{font-size:12px;color:var(--t2);background:var(--bg);border-radius:6px;padding:2px 8px}
-.sched-note{font-size:12.5px;color:var(--t3);flex:1}
-.sched-del{margin-left:auto}
+
+
+/* ---------- 투여 스케줄 ---------- */
 .dstat{font-size:11.5px;font-weight:600;color:#fff;border:none;border-radius:980px;padding:3px 11px;
   min-width:54px;text-align:center;font-family:inherit;cursor:pointer}
 .dstat:disabled{cursor:default}
 .dstat.s-plan{background:#98989D}
 .dstat.s-run{background:#C2610B}
 .dstat.s-done{background:#1D8C4B}
+.sched-dose{font-size:12px;color:var(--t2);background:var(--bg);border-radius:6px;padding:2px 8px}
+.sched-note{font-size:12.5px;color:var(--t3)}
 .sched-form{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px}
-.sched-form .in{flex:1 1 120px}
-.sched-add{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:none;border:1px dashed var(--sep);
-  border-radius:9px;color:var(--blue);font-family:inherit;font-size:13px;font-weight:500;padding:8px 13px;cursor:pointer}
+.sched-add{display:inline-flex;align-items:center;gap:6px;margin-top:10px;background:none;
+  border:1px dashed var(--sep);border-radius:9px;color:var(--blue);font-family:inherit;
+  font-size:13px;font-weight:500;padding:8px 13px;cursor:pointer}
 .sched-add:hover{background:var(--blue-soft);border-color:var(--blue)}
+
+/* 케이지 안의 스케줄 요약 (접힘/펼침) */
+.csched{border-top:1px solid var(--sep-soft);background:var(--surface-2)}
+.csched-bar{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  font-family:inherit;font-size:13.5px;color:var(--t1);text-align:left;
+  padding:12px 20px;cursor:pointer;transition:background .13s}
+.csched-bar:hover{background:var(--bg)}
+.csched-bar svg{margin-left:auto;color:var(--t3);flex-shrink:0}
+.csched-kind{font-size:10.5px;font-weight:700;color:#12509B;background:#E8F1FD;
+  border-radius:980px;padding:3px 9px}
+.csched-sum{font-size:12.5px;color:var(--t2)}
+.csched-list{padding:2px 20px 14px}
+.csched-row{display:flex;align-items:center;gap:11px;padding:8px 0;
+  border-top:1px solid var(--sep-soft);font-size:13.5px}
+.csched-cycle{font-weight:600;min-width:42px}
+.csched-date{color:var(--t2);font-size:12.5px}
+
+/* 스케줄 관리 패널 */
+.lib-item{border-top:1px solid var(--sep-soft)}
+.lib-head{display:flex;align-items:center;gap:10px;padding:12px 2px;cursor:pointer;font-size:13.5px}
+.lib-head svg{color:var(--t3)}
+.lib-body{padding:2px 2px 14px}
+.lib-sub{font-size:11.5px;font-weight:700;color:var(--t3);margin:12px 0 4px}
+.lib-cages{display:flex;flex-wrap:wrap;gap:7px}
+.lib-cage{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--t1);
+  background:var(--bg);border:1px solid var(--sep-soft);border-radius:980px;
+  padding:6px 12px;cursor:pointer}
+.lib-cage.on{background:var(--blue-soft);border-color:var(--blue);color:var(--blue-d);font-weight:600}
+.lib-cage input{accent-color:var(--blue)}
