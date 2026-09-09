@@ -28,15 +28,20 @@ export function useTable(table, orderCols) {
     await supabase.from("mc_log").insert({ who, action, target });
   };
 
+  // updated_by / updated_at 컬럼이 없는 테이블도 있어 실패 시 그 필드 없이 재시도
+  const missingCol = (e) => e && /column/i.test(e.message || "") && /updated_(by|at)/.test(e.message || "");
+
   const add = async (row, who, target) => {
-    const { error } = await supabase.from(table).insert({ ...row, updated_by: who || "" });
+    let { error } = await supabase.from(table).insert({ ...row, updated_by: who || "" });
+    if (error && missingCol(error)) ({ error } = await supabase.from(table).insert(row));
     if (error) { console.error(error); alert("저장 실패: " + error.message); return; }
     await logIt(who, "추가", target || "");
     await load();
   };
   const update = async (id, patch, who, target) => {
-    const { error } = await supabase.from(table)
+    let { error } = await supabase.from(table)
       .update({ ...patch, updated_by: who || "", updated_at: new Date().toISOString() }).eq("id", id);
+    if (error && missingCol(error)) ({ error } = await supabase.from(table).update(patch).eq("id", id));
     if (error) { console.error(error); alert("수정 실패: " + error.message); return; }
     await logIt(who, "수정", target || "");
     await load();
