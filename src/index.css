@@ -390,7 +390,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 /* 실험 상태 선택 팝오버 */
 .tagmenu-wrap{position:relative;display:inline-flex}
 .tagmenu-back{position:fixed;inset:0;z-index:60}
-.tagmenu{position:absolute;top:calc(100% + 8px);right:0;z-index:61;min-width:186px;
+.tagmenu{position:absolute;top:calc(100% + 8px);right:0;z-index:200;min-width:186px;
   background:var(--surface);border:1px solid var(--sep-soft);border-radius:14px;padding:6px;
   box-shadow:0 18px 44px -14px rgba(50,45,40,.35);animation:pop .14s cubic-bezier(.2,.9,.3,1.1)}
 .tagmenu-t{font-size:11px;font-weight:600;color:var(--t3);padding:7px 10px 5px}
@@ -514,7 +514,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 
 /* 상태 선택 메뉴 */
 .stat-wrap{position:relative;display:inline-flex;flex-shrink:0}
-.statmenu{position:absolute;top:calc(100% + 7px);left:0;z-index:61;min-width:132px;
+.statmenu{position:absolute;top:calc(100% + 7px);left:0;z-index:200;min-width:132px;
   background:var(--surface);border:1px solid var(--sep-soft);border-radius:12px;padding:5px;
   box-shadow:0 16px 40px -14px rgba(50,45,40,.35);animation:pop .13s cubic-bezier(.2,.9,.3,1.1)}
 .statmenu-item{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
@@ -545,3 +545,8 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 /* 스케줄 이름 수정 */
 .lib-act{margin-left:auto;display:inline-flex;gap:2px}
 .lib-head .in{flex:1 1 160px}
+
+/* 포털로 띄우는 메뉴 (카드에 잘리지 않음) */
+.menu-back{position:fixed;inset:0;z-index:190}
+.statmenu.fixed{position:fixed;top:auto;left:auto;z-index:200}
+.tagmenu.fixed{position:fixed;top:auto;left:auto;right:auto;z-index:200}

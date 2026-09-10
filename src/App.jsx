@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
   History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical, CalendarDays,
@@ -259,25 +260,34 @@ const statusClass = (st) => (st === "완료" ? "s-done" : st === "진행중" ? "
 
 // 상태 배지: 클릭하면 예정·진행중·완료를 직접 선택
 function StatusBadge({ value, onChange, disabled }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);   // 열려 있으면 {top,left}
+  const btnRef = useRef(null);
+
+  const openMenu = () => {
+    if (disabled) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const H = 132;                                   // 메뉴 대략 높이
+    const below = window.innerHeight - r.bottom > H + 12;
+    setPos({ top: below ? r.bottom + 7 : r.top - H - 7, left: r.left });
+  };
+
   return (
     <span className="stat-wrap">
-      <button className={"dstat " + statusClass(value)} disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}>{value}</button>
-      {open && (
+      <button ref={btnRef} className={"dstat " + statusClass(value)} disabled={disabled}
+        onClick={() => (pos ? setPos(null) : openMenu())}>{value}</button>
+      {pos && createPortal(
         <>
-          <div className="tagmenu-back" onClick={() => setOpen(false)} />
-          <div className="statmenu">
+          <div className="menu-back" onClick={() => setPos(null)} />
+          <div className="statmenu fixed" style={{ top: pos.top, left: pos.left }}>
             {SCHED_STATUS.map((st) => (
               <button key={st} className={"statmenu-item" + (st === value ? " on" : "")}
-                onClick={() => { setOpen(false); if (st !== value) onChange(st); }}>
+                onClick={() => { setPos(null); if (st !== value) onChange(st); }}>
                 <span className={"dstat " + statusClass(st)}>{st}</span>
                 {st === value && <Check size={14} className="tagmenu-check" />}
               </button>
             ))}
           </div>
-        </>
-      )}
+        </>, document.body)}
     </span>
   );
 }
@@ -517,7 +527,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
   const [open, setOpen] = useState(!cage.done);
   const [editing, setEditing] = useState(null); // id | 'new'
   const [editCage, setEditCage] = useState(false);
-  const [tagMenu, setTagMenu] = useState(false);
+  const [tagMenu, setTagMenu] = useState(null);
+  const tagBtnRef = useRef(null);
   const [drag, setDrag] = useState(null); // {idx,dx,dy,mode,overIdx,side}
   const dragRef = useRef(null);
   const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type });
@@ -671,14 +682,21 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
             <span className="cage-actions">
               {canEdit && (
                 <span className="tagmenu-wrap">
-                  <button className={"iconbtn" + (asTags(cage.tags).length ? " on" : "")}
-                    title="실험 상태 선택" onClick={() => setTagMenu((v) => !v)}>
+                  <button ref={tagBtnRef} className={"iconbtn" + (asTags(cage.tags).length ? " on" : "")}
+                    title="실험 상태 선택"
+                    onClick={() => {
+                      if (tagMenu) return setTagMenu(null);
+                      const r = tagBtnRef.current.getBoundingClientRect();
+                      const H = 230;
+                      const below = window.innerHeight - r.bottom > H + 12;
+                      setTagMenu({ top: below ? r.bottom + 8 : r.top - H - 8, left: Math.max(12, r.right - 186) });
+                    }}>
                     <FlaskConical size={14} />
                   </button>
-                  {tagMenu && (
+                  {tagMenu && createPortal(
                     <>
-                      <div className="tagmenu-back" onClick={() => setTagMenu(false)} />
-                      <div className="tagmenu">
+                      <div className="menu-back" onClick={() => setTagMenu(null)} />
+                      <div className="tagmenu fixed" style={{ top: tagMenu.top, left: tagMenu.left }}>
                         <div className="tagmenu-t">실험 상태</div>
                         {EXP_TAGS.map((t) => {
                           const on = asTags(cage.tags).includes(t.key);
@@ -697,8 +715,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
                           );
                         })}
                       </div>
-                    </>
-                  )}
+                    </>, document.body)}
                 </span>
               )}
               {canEdit && cage.grp === "behavior" && (
