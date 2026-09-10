@@ -177,6 +177,83 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
 }
 
 /* ---------------- 투여 스케줄 ---------------- */
+// yy.MM.dd 형식 (기존 표기와 동일)
+const p2 = (n) => String(n).padStart(2, "0");
+const fmtDay = (d) => `${p2(d.getFullYear() % 100)}.${p2(d.getMonth() + 1)}.${p2(d.getDate())}`;
+const fmtRange = (a, b) => {
+  if (a.getTime() === b.getTime()) return fmtDay(a);
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear())
+    return `${fmtDay(a)}~${p2(b.getDate())}`;              // 26.09.08~10
+  return `${fmtDay(a)}~${p2(b.getMonth() + 1)}.${p2(b.getDate())}`;  // 26.09.28~10.02
+};
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+
+// 투여 n일 / 휴식 m일 패턴으로 Cycle 날짜를 계산
+function buildCycles({ start, on, off, times }) {
+  const s0 = new Date(start + "T00:00:00");
+  if (isNaN(s0) || on < 1 || times < 1) return [];
+  const out = [];
+  for (let i = 0; i < times; i++) {
+    const a = addDays(s0, i * (on + off));
+    const b = addDays(a, on - 1);
+    out.push({ dates: fmtRange(a, b), start: a, end: b });
+  }
+  return out;
+}
+
+// Cycle 자동 생성 폼
+function CycleGen({ sched, count, onCreate }) {
+  const [g, setG] = useState({ start: "", on: 3, off: 2, times: 6, dose: "0.15mg", label: "{n}차" });
+  const [busy, setBusy] = useState(false);
+  const preview = buildCycles({ start: g.start, on: +g.on, off: +g.off, times: +g.times });
+
+  return (
+    <div className="gen">
+      <div className="gen-row">
+        <label className="gen-f"><span>시작일</span>
+          <input className="in" type="date" value={g.start}
+            onChange={(e) => setG({ ...g, start: e.target.value })} /></label>
+        <label className="gen-f sm"><span>투여</span>
+          <input className="in" type="number" min="1" value={g.on}
+            onChange={(e) => setG({ ...g, on: e.target.value })} /><i>일</i></label>
+        <label className="gen-f sm"><span>휴식</span>
+          <input className="in" type="number" min="0" value={g.off}
+            onChange={(e) => setG({ ...g, off: e.target.value })} /><i>일</i></label>
+        <label className="gen-f sm"><span>반복</span>
+          <input className="in" type="number" min="1" value={g.times}
+            onChange={(e) => setG({ ...g, times: e.target.value })} /><i>회</i></label>
+        <label className="gen-f"><span>농도</span>
+          <input className="in" value={g.dose} placeholder="0.15mg"
+            onChange={(e) => setG({ ...g, dose: e.target.value })} /></label>
+        <label className="gen-f"><span>이름 형식</span>
+          <input className="in" value={g.label} placeholder="{n}차"
+            onChange={(e) => setG({ ...g, label: e.target.value })} /></label>
+      </div>
+
+      {preview.length > 0 && (
+        <div className="gen-prev">
+          <span className="gen-prev-t">미리보기 {preview.length}개</span>
+          {preview.slice(0, 8).map((c, i) => <span key={i} className="gen-chip mono">{c.dates}</span>)}
+          {preview.length > 8 && <span className="gen-chip more">＋{preview.length - 8}</span>}
+        </div>
+      )}
+
+      <button className="btn btn-p" disabled={!preview.length || busy}
+        onClick={async () => {
+          setBusy(true);
+          await onCreate(preview.map((c, i) => ({
+            cycle: (g.label || "{n}차").replace("{n}", String(count + i + 1)),
+            dates: c.dates, dose: g.dose.trim(),
+            status: "예정", sort: count + i + 1,
+          })));
+          setBusy(false);
+        }}>
+        <Plus size={14} /> {busy ? "생성 중…" : `Cycle ${preview.length}개 생성`}
+      </button>
+    </div>
+  );
+}
+
 const SCHED_STATUS = ["예정", "진행중", "완료"];
 const statusClass = (st) => (st === "완료" ? "s-done" : st === "진행중" ? "s-run" : "s-plan");
 
@@ -254,6 +331,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const askText = usePrompt();
   const [expand, setExpand] = useState(null);
   const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+  const [edit, setEdit] = useState(null);
+  const [ef, setEf] = useState({ cycle: "", dates: "", dose: "" });
   useScrollLock(true);
 
   const addSched = async () => {
@@ -297,18 +376,52 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                   <div className="lib-body">
                     <div className="lib-sub">Cycle</div>
                     {mine.map((r) => (
-                      <div key={r.id} className="csched-row">
-                        <StatusBadge value={r.status} disabled={!canEdit}
-                          onChange={(st) => cycleOps.update(r.id, { status: st }, me, `${sc.name} ${r.cycle} → ${st}`)} />
-                        <span className="csched-cycle">{r.cycle}</span>
-                        <span className="mono csched-date">{r.dates}</span>
-                        {r.dose && <span className="sched-dose">{r.dose}</span>}
-                        {canEdit && (
-                          <button className="iconbtn danger" style={{ marginLeft: "auto" }}
-                            onClick={() => cycleOps.remove(r.id, me, `${sc.name} ${r.cycle} 삭제`)}><Trash2 size={13} /></button>
-                        )}
-                      </div>
+                      edit === r.id ? (
+                        <div key={r.id} className="sched-form">
+                          <input className="in" style={{ maxWidth: 96 }} value={ef.cycle} autoFocus
+                            placeholder="1차" onChange={(e) => setEf({ ...ef, cycle: e.target.value })} />
+                          <input className="in" style={{ maxWidth: 160 }} value={ef.dates}
+                            placeholder="26.09.08~10" onChange={(e) => setEf({ ...ef, dates: e.target.value })} />
+                          <input className="in" style={{ maxWidth: 104 }} value={ef.dose}
+                            placeholder="0.15mg" onChange={(e) => setEf({ ...ef, dose: e.target.value })} />
+                          <button className="btn btn-s" onClick={() => setEdit(null)}><X size={14} /></button>
+                          <button className="btn btn-p" onClick={async () => {
+                            await cycleOps.update(r.id, {
+                              cycle: ef.cycle.trim(), dates: ef.dates.trim(), dose: ef.dose.trim(),
+                            }, me, `${sc.name} ${ef.cycle} 수정`);
+                            setEdit(null);
+                          }}><Check size={14} /> 저장</button>
+                        </div>
+                      ) : (
+                        <div key={r.id} className="csched-row">
+                          <StatusBadge value={r.status} disabled={!canEdit}
+                            onChange={(st) => cycleOps.update(r.id, { status: st }, me, `${sc.name} ${r.cycle} → ${st}`)} />
+                          <span className="csched-cycle">{r.cycle}</span>
+                          <span className="mono csched-date">{r.dates}</span>
+                          {r.dose && <span className="sched-dose">{r.dose}</span>}
+                          {canEdit && (
+                            <span className="csched-act">
+                              <button className="iconbtn" title="수정"
+                                onClick={() => { setEdit(r.id); setEf({ cycle: r.cycle || "", dates: r.dates || "", dose: r.dose || "" }); }}>
+                                <Pencil size={13} /></button>
+                              <button className="iconbtn danger" title="삭제"
+                                onClick={() => cycleOps.remove(r.id, me, `${sc.name} ${r.cycle} 삭제`)}><Trash2 size={13} /></button>
+                            </span>
+                          )}
+                        </div>
+                      )
                     ))}
+                    {canEdit && (
+                      <>
+                        <div className="lib-sub">Cycle 자동 생성</div>
+                        <CycleGen sched={sc} count={mine.length}
+                          onCreate={async (rows) => {
+                            for (const r of rows) await cycleOps.add({ ...r, sched_id: sc.id }, me, `${sc.name} Cycle 자동 생성`);
+                          }} />
+                        <div className="lib-sub">직접 추가</div>
+                      </>
+                    )}
+
                     {canEdit && (
                       <div className="sched-form">
                         <input className="in" style={{ maxWidth: 88 }} placeholder="1차" value={f.cycle}
