@@ -541,3 +541,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .csched-act{margin-left:auto;display:inline-flex;gap:2px;opacity:0;transition:opacity .14s}
 .csched-row:hover .csched-act{opacity:1}
 @media (hover:none){.csched-act{opacity:1}}
+
+/* 스케줄 이름 수정 */
+.lib-act{margin-left:auto;display:inline-flex;gap:2px}
+.lib-head .in{flex:1 1 160px}

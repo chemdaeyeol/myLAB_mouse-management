@@ -333,6 +333,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
   const [edit, setEdit] = useState(null);
   const [ef, setEf] = useState({ cycle: "", dates: "", dose: "" });
+  const [rename, setRename] = useState(null);
+  const [rf, setRf] = useState({ name: "", kind: "DOX" });
   useScrollLock(true);
 
   const addSched = async () => {
@@ -357,20 +359,49 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
             const on = expand === sc.id;
             return (
               <div key={sc.id} className="lib-item">
+                {rename === sc.id ? (
+                  <div className="lib-head" onClick={(e) => e.stopPropagation()}>
+                    <select className="in" style={{ maxWidth: 96 }} value={rf.kind}
+                      onChange={(e) => setRf({ ...rf, kind: e.target.value })}>
+                      {["DOX", "TAM", "기타"].map((k) => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                    <input className="in" autoFocus value={rf.name} placeholder="스케줄 이름"
+                      onChange={(e) => setRf({ ...rf, name: e.target.value })}
+                      onKeyDown={async (e) => {
+                        if (e.key === "Escape") setRename(null);
+                        if (e.key === "Enter" && rf.name.trim()) {
+                          await schedOps.update(sc.id, { name: rf.name.trim(), kind: rf.kind }, me, `스케줄 ${rf.name} 수정`);
+                          setRename(null);
+                        }
+                      }} />
+                    <button className="btn btn-s" onClick={() => setRename(null)}><X size={14} /></button>
+                    <button className="btn btn-p" disabled={!rf.name.trim()}
+                      onClick={async () => {
+                        await schedOps.update(sc.id, { name: rf.name.trim(), kind: rf.kind }, me, `스케줄 ${rf.name} 수정`);
+                        setRename(null);
+                      }}><Check size={14} /> 저장</button>
+                  </div>
+                ) : (
                 <div className="lib-head" onClick={() => setExpand(on ? null : sc.id)}>
                   <span className="csched-kind">{sc.kind}</span>
                   <b>{sc.name}</b>
                   <span className="dox-sum">Cycle {mine.length} · 적용 {applied.length}개 케이지</span>
                   {canEdit && (
-                    <button className="iconbtn danger" title="스케줄 삭제"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const ok = await confirm({ title: "스케줄을 삭제할까요?", body: `${sc.name} · Cycle ${mine.length}건이 함께 삭제됩니다.` });
-                        if (ok) await schedOps.remove(sc.id, me, `스케줄 ${sc.name} 삭제`);
-                      }}><Trash2 size={14} /></button>
+                    <span className="lib-act">
+                      <button className="iconbtn" title="이름 수정"
+                        onClick={(e) => { e.stopPropagation(); setRename(sc.id); setRf({ name: sc.name || "", kind: sc.kind || "DOX" }); }}>
+                        <Pencil size={14} /></button>
+                      <button className="iconbtn danger" title="스케줄 삭제"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const ok = await confirm({ title: "스케줄을 삭제할까요?", body: `${sc.name} · Cycle ${mine.length}건이 함께 삭제됩니다.` });
+                          if (ok) await schedOps.remove(sc.id, me, `스케줄 ${sc.name} 삭제`);
+                        }}><Trash2 size={14} /></button>
+                    </span>
                   )}
                   {on ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </div>
+                )}
 
                 {on && (
                   <div className="lib-body">
