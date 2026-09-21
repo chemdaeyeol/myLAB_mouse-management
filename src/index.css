@@ -488,7 +488,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .lib-cage input{accent-color:var(--blue)}
 
 /* 투여 스케줄 모달 */
-.modal.lib-modal{max-width:620px;width:100%;text-align:left;padding:0;overflow:hidden}
+.modal.lib-modal{max-width:720px;width:100%;text-align:left;padding:0;overflow:hidden}
 .lib-modal-head{display:flex;align-items:center;gap:10px;padding:16px 20px;
   border-bottom:1px solid var(--sep-soft);font-size:15px}
 .lib-modal-head b{font-size:16px}
