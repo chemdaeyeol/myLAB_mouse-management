@@ -180,7 +180,7 @@ function MouseForm({ init, cage, onSave, onCancel, cols = 6 }) {
 function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, dose, doseCol, onMemo }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
   const canEdit = useContext(EditCtx);
-  const [tip, setTip] = useState(null);     // 메모 말풍선 위치 {left, top, below}
+  const [tip, setTip] = useState(null);     // 메모 말풍선 위치 {left, top}
   const tipText = [m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n");
   useEffect(() => {                          // 스크롤하면 말풍선 닫기 (위치 어긋남 방지)
     if (!tip) return;
@@ -191,9 +191,9 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
   const showTip = (e) => {
     if (!tipText || drag) return;
     const r = e.currentTarget.getBoundingClientRect();
-    const below = r.top < 90;                // 위 공간이 부족하면 아래로
-    const left = Math.min(Math.max(8, r.left - 6), window.innerWidth - 300);
-    setTip({ left, top: below ? r.bottom + 8 : r.top - 8, below });
+    // 이름 가운데 위쪽 (화면 양 끝에서는 잘리지 않게 중심만 안쪽으로)
+    const cx = Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150);
+    setTip({ left: cx, top: r.top - 8 });
   };
   const isDragging = drag?.idx === idx;
   const isTarget = drag && drag.mode === "move" && drag.overIdx === idx && drag.idx !== idx;
@@ -222,7 +222,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
           {(m.note || m.weight || canEdit) && <span className="memo-dot" aria-hidden="true" />}
         </span>
         {tip && createPortal(
-          <div className={"memo-tip" + (tip.below ? " below" : "")} style={{ left: tip.left, top: tip.top }}>
+          <div className="memo-tip" style={{ left: tip.left, top: tip.top }}>
             {tipText}
           </div>, document.body)}
       </td>
