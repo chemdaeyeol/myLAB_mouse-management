@@ -85,7 +85,7 @@ function parseDob(s) {
 }
 function ageWeeks(dobStr) {
   const d = parseDob(dobStr); if (!d) return null;
-  const w = Math.floor((Date.now() - d.getTime()) / (7 * 86400000));
+  const w = (Date.now() - d.getTime()) / (7 * 86400000);   // 소수 주령 (2주 6일 → 2.9)
   return w >= 0 && w < 400 ? w : null;
 }
 // 표시 단위: auto → w → m → y (배지 클릭으로 순환)
@@ -96,7 +96,7 @@ export const EditCtx = createContext(false);
 
 const ageBadge = (w, unit = "m") => {
   if (w == null) return null;
-  if (unit === "w") return `${w}w`;
+  if (unit === "w") return `${(Math.floor(w * 10) / 10).toFixed(1)}w`;   // 반올림 없이 내림 (2.95 → 2.9)
   if (unit === "y") return `${(w / 52.14).toFixed(1)}y`;
   return `${Math.floor(w / 4.345)}m`;
 };
@@ -189,6 +189,28 @@ const fmtRange = (a, b) => {
 };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 
+// "26.09.21~23" → 시작일 (정렬용)
+const cycleStart = (dates) => {
+  const m = String(dates || "").match(/(\d{2,4})\.(\d{1,2})\.(\d{1,2})/);
+  if (!m) return Infinity;
+  let y = +m[1]; if (y < 100) y += 2000;
+  return new Date(y, +m[2] - 1, +m[3]).getTime();
+};
+const byDate = (a, b) => cycleStart(a.dates) - cycleStart(b.dates);
+// 대상별로 묶고(케이지 전체 먼저, 이후 M1·M2… 자연 정렬) 묶음 안은 날짜순
+function groupCycles(list) {
+  const map = new Map();
+  list.forEach((r) => {
+    const k = (r.target || "").trim();
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(r);
+  });
+  const keys = [...map.keys()].sort((a, b) =>
+    a === "" ? -1 : b === "" ? 1 : a.localeCompare(b, undefined, { numeric: true }));
+  return keys.map((k) => ({ target: k, items: map.get(k).sort(byDate) }));
+}
+const hasTargets = (list) => list.some((r) => (r.target || "").trim());
+
 // 투여 n일 / 휴식 m일 패턴으로 Cycle 날짜를 계산
 function buildCycles({ start, on, off, times }) {
   const s0 = new Date(start + "T00:00:00");
@@ -203,14 +225,17 @@ function buildCycles({ start, on, off, times }) {
 }
 
 // Cycle 자동 생성 폼
-function CycleGen({ sched, count, onCreate }) {
-  const [g, setG] = useState({ start: "", on: 3, off: 2, times: 6, dose: "0.15mg", label: "{n}차" });
+function CycleGen({ sched, countFor, onCreate }) {
+  const [g, setG] = useState({ start: "", on: 3, off: 2, times: 6, dose: "0.15mg", label: "{n}차", target: "" });
   const [busy, setBusy] = useState(false);
   const preview = buildCycles({ start: g.start, on: +g.on, off: +g.off, times: +g.times });
 
   return (
     <div className="gen">
       <div className="gen-row">
+        <label className="gen-f sm"><span>대상</span>
+          <input className="in" value={g.target} placeholder="M4"
+            onChange={(e) => setG({ ...g, target: e.target.value })} /></label>
         <label className="gen-f"><span>시작일</span>
           <input className="in" type="date" value={g.start}
             onChange={(e) => setG({ ...g, start: e.target.value })} /></label>
@@ -242,10 +267,13 @@ function CycleGen({ sched, count, onCreate }) {
       <button className="btn btn-p" disabled={!preview.length || busy}
         onClick={async () => {
           setBusy(true);
+          const t = g.target.trim();
+          const base = countFor(t);                 // 대상별로 회차 번호를 이어서
           await onCreate(preview.map((c, i) => ({
-            cycle: (g.label || "{n}차").replace("{n}", String(count + i + 1)),
+            target: t,
+            cycle: (g.label || "{n}차").replace("{n}", String(base + i + 1)),
             dates: c.dates, dose: g.dose.trim(),
-            status: "예정", sort: count + i + 1,
+            status: "예정", sort: base + i + 1,
           })));
           setBusy(false);
         }}>
@@ -300,9 +328,10 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
   if (!sched) return null;
 
   const mine = cycles.filter((r) => r.sched_id === sched.id);
+  const sorted = [...mine].sort(byDate);
   const done = mine.filter((r) => r.status === "완료").length;
-  const cur = mine.find((r) => r.status === "진행중");
-  const next = mine.find((r) => r.status === "예정");
+  const cur = sorted.find((r) => r.status === "진행중");
+  const next = sorted.find((r) => r.status === "예정");
 
   return (
     <div className="csched">
@@ -318,14 +347,21 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
       {open && (
         <div className="csched-list">
           {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 Cycle이 없어요.</p>}
-          {mine.map((r) => (
-            <div key={r.id} className="csched-row">
-              <StatusBadge value={r.status} disabled={!canEdit}
-                onChange={(st) => ops.update(r.id, { status: st }, me, `${sched.name} ${r.cycle} → ${st}`)} />
-              <span className="csched-cycle">{r.cycle}</span>
-              <span className="mono csched-date">{r.dates}</span>
-              {r.dose && <span className="sched-dose">{r.dose}</span>}
-              {r.note && <span className="sched-note">{r.note}</span>}
+          {groupCycles(mine).map((grp) => (
+            <div key={grp.target || "_all"} className="cgroup">
+              {hasTargets(mine) && (
+                <div className="cgroup-h">{grp.target || "케이지 전체"}<span>{grp.items.length}</span></div>
+              )}
+              {grp.items.map((r) => (
+                <div key={r.id} className="csched-row">
+                  <StatusBadge value={r.status} disabled={!canEdit}
+                    onChange={(st) => ops.update(r.id, { status: st }, me, `${sched.name} ${r.cycle} → ${st}`)} />
+                  <span className="csched-cycle">{r.cycle}</span>
+                  <span className="mono csched-date">{r.dates}</span>
+                  {r.dose && <span className="sched-dose">{r.dose}</span>}
+                  {r.note && <span className="sched-note">{r.note}</span>}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -340,9 +376,9 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const confirm = useConfirm();
   const askText = usePrompt();
   const [expand, setExpand] = useState(null);
-  const [f, setF] = useState({ cycle: "", dates: "", dose: "", note: "" });
+  const [f, setF] = useState({ target: "", cycle: "", dates: "", dose: "", note: "" });
   const [edit, setEdit] = useState(null);
-  const [ef, setEf] = useState({ cycle: "", dates: "", dose: "" });
+  const [ef, setEf] = useState({ target: "", cycle: "", dates: "", dose: "" });
   const [rename, setRename] = useState(null);
   const [rf, setRf] = useState({ name: "", kind: "DOX" });
   useScrollLock(true);
@@ -416,9 +452,16 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                 {on && (
                   <div className="lib-body">
                     <div className="lib-sub">Cycle</div>
-                    {mine.map((r) => (
+                    {groupCycles(mine).map((grp) => (
+                      <div key={grp.target || "_all"} className="cgroup">
+                        {hasTargets(mine) && (
+                          <div className="cgroup-h">{grp.target || "케이지 전체"}<span>{grp.items.length}</span></div>
+                        )}
+                    {grp.items.map((r) => (
                       edit === r.id ? (
                         <div key={r.id} className="sched-form">
+                          <input className="in" style={{ maxWidth: 76 }} value={ef.target}
+                            placeholder="대상" onChange={(e) => setEf({ ...ef, target: e.target.value })} />
                           <input className="in" style={{ maxWidth: 96 }} value={ef.cycle} autoFocus
                             placeholder="1차" onChange={(e) => setEf({ ...ef, cycle: e.target.value })} />
                           <input className="in" style={{ maxWidth: 160 }} value={ef.dates}
@@ -428,6 +471,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                           <button className="btn btn-s" onClick={() => setEdit(null)}><X size={14} /></button>
                           <button className="btn btn-p" onClick={async () => {
                             await cycleOps.update(r.id, {
+                              target: ef.target.trim(),
                               cycle: ef.cycle.trim(), dates: ef.dates.trim(), dose: ef.dose.trim(),
                             }, me, `${sc.name} ${ef.cycle} 수정`);
                             setEdit(null);
@@ -443,7 +487,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                           {canEdit && (
                             <span className="csched-act">
                               <button className="iconbtn" title="수정"
-                                onClick={() => { setEdit(r.id); setEf({ cycle: r.cycle || "", dates: r.dates || "", dose: r.dose || "" }); }}>
+                                onClick={() => { setEdit(r.id); setEf({ target: r.target || "", cycle: r.cycle || "", dates: r.dates || "", dose: r.dose || "" }); }}>
                                 <Pencil size={13} /></button>
                               <button className="iconbtn danger" title="삭제"
                                 onClick={() => cycleOps.remove(r.id, me, `${sc.name} ${r.cycle} 삭제`)}><Trash2 size={13} /></button>
@@ -452,10 +496,13 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                         </div>
                       )
                     ))}
+                      </div>
+                    ))}
                     {canEdit && (
                       <>
                         <div className="lib-sub">Cycle 자동 생성</div>
-                        <CycleGen sched={sc} count={mine.length}
+                        <CycleGen sched={sc}
+                          countFor={(t) => mine.filter((r) => (r.target || "").trim() === t).length}
                           onCreate={async (rows) => {
                             for (const r of rows) await cycleOps.add({ ...r, sched_id: sc.id }, me, `${sc.name} Cycle 자동 생성`);
                           }} />
@@ -465,6 +512,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
 
                     {canEdit && (
                       <div className="sched-form">
+                        <input className="in" style={{ maxWidth: 76 }} placeholder="대상" value={f.target}
+                          onChange={(e) => setF({ ...f, target: e.target.value })} />
                         <input className="in" style={{ maxWidth: 88 }} placeholder="1차" value={f.cycle}
                           onChange={(e) => setF({ ...f, cycle: e.target.value })} />
                         <input className="in" style={{ maxWidth: 160 }} placeholder="26.09.08~10" value={f.dates}
@@ -473,12 +522,14 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                           onChange={(e) => setF({ ...f, dose: e.target.value })} />
                         <button className="btn btn-p" disabled={!f.dates.trim() && !f.cycle.trim()}
                           onClick={async () => {
+                            const t = f.target.trim();
+                            const n = mine.filter((r) => (r.target || "").trim() === t).length + 1;
                             await cycleOps.add({
-                              sched_id: sc.id, cycle: f.cycle.trim() || `${mine.length + 1}차`,
+                              sched_id: sc.id, target: t, cycle: f.cycle.trim() || `${n}차`,
                               dates: f.dates.trim(), dose: f.dose.trim(), note: f.note.trim(),
-                              status: "예정", sort: mine.length + 1,
+                              status: "예정", sort: n,
                             }, me, `${sc.name} Cycle 추가`);
-                            setF({ cycle: "", dates: "", dose: "", note: "" });
+                            setF({ target: t, cycle: "", dates: "", dose: "", note: "" });
                           }}><Plus size={14} /> Cycle 추가</button>
                       </div>
                     )}
@@ -994,7 +1045,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </main>
 
       <footer className="foot"><div className="wrap">
-       마우스 관리 현황 웹사이트 베타버전
+       마우스 관리 현황 웹사이트 made by DY
       </div></footer>
       {schedOpen && (
         <SchedLibrary me={me} scheds={scheds} schedOps={schedOps} cycles={doxRows}

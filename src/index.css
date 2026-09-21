@@ -550,3 +550,10 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .menu-back{position:fixed;inset:0;z-index:190}
 .statmenu.fixed{position:fixed;top:auto;left:auto;z-index:200}
 .tagmenu.fixed{position:fixed;top:auto;left:auto;right:auto;z-index:200}
+
+/* Cycle 대상별 묶음 */
+.cgroup + .cgroup{margin-top:10px}
+.cgroup-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--t1);
+  padding:8px 2px 4px;border-bottom:1px solid var(--sep-soft)}
+.cgroup-h span{font-size:11px;font-weight:600;color:var(--t3);background:var(--bg);
+  border-radius:980px;padding:1px 8px}
