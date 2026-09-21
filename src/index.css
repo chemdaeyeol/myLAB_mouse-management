@@ -562,8 +562,9 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .cdone{display:flex;align-items:center;gap:8px;width:100%;padding:9px 2px;font-size:13px;
   color:var(--t1);background:none;border:none;border-bottom:1px solid var(--sep-soft);
   font-family:inherit;text-align:left}
-.cdone.click{cursor:pointer;border-radius:8px;transition:background .13s}
+.cdone.click{cursor:pointer;border-radius:0;transition:background .13s}
 .cdone.click:hover{background:var(--bg)}
+.cdone b{min-width:46px}   /* 대상 이름 폭 고정 → 배지·요약 세로 정렬 */
 .cdone-ic{color:#1D8C4B;flex-shrink:0}
 .cdone-t{font-size:11px;font-weight:600;color:#1D8C4B;background:#E8F6ED;border-radius:980px;padding:2px 8px}
 .cdone-s{color:var(--t2);font-size:12.5px}
