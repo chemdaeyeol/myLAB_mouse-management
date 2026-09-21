@@ -205,11 +205,38 @@ function groupCycles(list) {
     if (!map.has(k)) map.set(k, []);
     map.get(k).push(r);
   });
-  const keys = [...map.keys()].sort((a, b) =>
-    a === "" ? -1 : b === "" ? 1 : a.localeCompare(b, undefined, { numeric: true }));
-  return keys.map((k) => ({ target: k, items: map.get(k).sort(byDate) }));
+  const groups = [...map.entries()].map(([k, items]) => ({ target: k, items: items.sort(byDate) }));
+  // 먼저 투여를 시작한 대상이 위로 (같으면 이름순)
+  return groups.sort((a, b) =>
+    (cycleStart(a.items[0]?.dates) - cycleStart(b.items[0]?.dates)) ||
+    a.target.localeCompare(b.target, undefined, { numeric: true }));
 }
 const hasTargets = (list) => list.some((r) => (r.target || "").trim());
+
+// "26.09.21~23" / "26.09.28~10.02" / "26.10.01" → { a: 시작, b: 종료 }
+function cycleSpan(dates) {
+  const m = String(dates || "").match(/(\d{2,4})\.(\d{1,2})\.(\d{1,2})(?:~(?:(\d{1,2})\.)?(\d{1,2}))?/);
+  if (!m) return null;
+  let y = +m[1]; if (y < 100) y += 2000;
+  const a = new Date(y, +m[2] - 1, +m[3]);
+  let b = a;
+  if (m[5]) {
+    const mo = m[4] ? +m[4] - 1 : a.getMonth();
+    b = new Date(mo < a.getMonth() ? y + 1 : y, mo, +m[5]);
+  }
+  return { a, b };
+}
+const isAllDone = (items) => items.length > 0 && items.every((r) => r.status === "완료");
+// 완료 묶음 요약: "0.2mg × 4 Cycle" 또는 "총 5 Cycle (0.2mg × 4, 2mg × 1)" + 전체 기간
+function doneSummary(items) {
+  const byDose = new Map();
+  items.forEach((r) => { const d = (r.dose || "").trim() || "용량 미기재"; byDose.set(d, (byDose.get(d) || 0) + 1); });
+  const parts = [...byDose].map(([d, n]) => `${d} × ${n}`);
+  const doses = parts.length === 1 ? `${parts[0]} Cycle` : `총 ${items.length} Cycle (${parts.join(", ")})`;
+  const first = cycleSpan(items[0].dates), last = cycleSpan(items[items.length - 1].dates);
+  const range = first && last ? fmtRange(first.a, last.b) : "";
+  return { doses, range };
+}
 
 // 투여 n일 / 휴식 m일 패턴으로 Cycle 날짜를 계산
 function buildCycles({ start, on, off, times }) {
@@ -321,6 +348,21 @@ function StatusBadge({ value, onChange, disabled }) {
 }
 
 // 케이지에 배정된 스케줄: 접힌 요약 → 클릭하면 회차 펼침
+// 완료된 대상 한 줄 요약 (onToggle 이 있으면 눌러서 펼침)
+function DoneLine({ target, items, open, onToggle }) {
+  const { doses, range } = doneSummary(items);
+  const Tag = onToggle ? "button" : "div";
+  return (
+    <Tag className={"cdone" + (onToggle ? " click" : "")} onClick={onToggle}>
+      <CheckCircle2 size={14} className="cdone-ic" />
+      <b>{target || "케이지 전체"}</b>
+      <span className="cdone-t">완료</span>
+      <span className="cdone-s">{doses}{range ? ` · ${range}` : ""}</span>
+      {onToggle && (open ? <ChevronUp size={14} className="cdone-chev" /> : <ChevronDown size={14} className="cdone-chev" />)}
+    </Tag>
+  );
+}
+
 function CageSched({ cage, scheds, cycles, ops, me }) {
   const canEdit = useContext(EditCtx);
   const [open, setOpen] = useState(false);
@@ -339,15 +381,20 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
         <span className="csched-kind">{sched.kind}</span>
         <b>{sched.name}</b>
         <span className="csched-sum">
-          완료 {done}/{mine.length}
-          {cur ? ` · 진행 중 ${cur.dates}` : next ? ` · 다음 ${next.dates}` : ""}
+          {isAllDone(mine) && !hasTargets(mine)
+            ? `완료 · ${doneSummary(sorted).doses}`
+            : <>완료 {done}/{mine.length}{cur ? ` · 진행 중 ${cur.dates}` : next ? ` · 다음 ${next.dates}` : ""}</>}
         </span>
         {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
       {open && (
         <div className="csched-list">
           {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 Cycle이 없어요.</p>}
-          {groupCycles(mine).map((grp) => (
+          {groupCycles(mine).map((grp) => isAllDone(grp.items) ? (
+            <div key={grp.target || "_all"} className="cgroup">
+              <DoneLine target={grp.target} items={grp.items} />
+            </div>
+          ) : (
             <div key={grp.target || "_all"} className="cgroup">
               {hasTargets(mine) && (
                 <div className="cgroup-h">{grp.target || "케이지 전체"}<span>{grp.items.length}</span></div>
@@ -380,6 +427,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const [edit, setEdit] = useState(null);
   const [ef, setEf] = useState({ target: "", cycle: "", dates: "", dose: "" });
   const [rename, setRename] = useState(null);
+  const [openDone, setOpenDone] = useState({});
   const [rf, setRf] = useState({ name: "", kind: "DOX" });
   useScrollLock(true);
 
@@ -452,12 +500,18 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                 {on && (
                   <div className="lib-body">
                     <div className="lib-sub">Cycle</div>
-                    {groupCycles(mine).map((grp) => (
+                    {groupCycles(mine).map((grp) => {
+                      const gk = sc.id + ":" + (grp.target || "_all");
+                      const folded = isAllDone(grp.items) && !openDone[gk];
+                      return (
                       <div key={grp.target || "_all"} className="cgroup">
-                        {hasTargets(mine) && (
+                        {isAllDone(grp.items) ? (
+                          <DoneLine target={grp.target} items={grp.items} open={!folded}
+                            onToggle={() => setOpenDone((o) => ({ ...o, [gk]: !o[gk] }))} />
+                        ) : hasTargets(mine) && (
                           <div className="cgroup-h">{grp.target || "케이지 전체"}<span>{grp.items.length}</span></div>
                         )}
-                    {grp.items.map((r) => (
+                    {!folded && grp.items.map((r) => (
                       edit === r.id ? (
                         <div key={r.id} className="sched-form">
                           <input className="in" style={{ maxWidth: 76 }} value={ef.target}
@@ -497,7 +551,8 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                       )
                     ))}
                       </div>
-                    ))}
+                      );
+                    })}
                     {canEdit && (
                       <>
                         <div className="lib-sub">Cycle 자동 생성</div>
