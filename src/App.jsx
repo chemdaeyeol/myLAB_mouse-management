@@ -106,7 +106,7 @@ function Field({ label, children }) {
   return <label className="field"><span className="flabel">{label}</span>{children}</label>;
 }
 
-function MouseForm({ init, cage, onSave, onCancel }) {
+function MouseForm({ init, cage, onSave, onCancel, cols = 7 }) {
   const [f, setF] = useState({
     label: init?.label || "", g1: init?.g1 || "", g2: init?.g2 || "", g3: init?.g3 || "",
     dob: init?.dob || "", note: init?.note || "", weight: init?.weight || "", dose: init?.dose || "",
@@ -114,7 +114,7 @@ function MouseForm({ init, cage, onSave, onCancel }) {
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <tr className="form-row">
-      <td colSpan={7}>
+      <td colSpan={cols}>
         <div className="mform">
           <Field label="Mouse"><input className="in" value={f.label} onChange={set("label")} placeholder="M1 / F5 / baby" autoFocus /></Field>
           <Field label={cage.g1_label || "G1"}><input className="in" value={f.g1} onChange={set("g1")} placeholder="HM/HT/WT/O/X" /></Field>
@@ -133,7 +133,7 @@ function MouseForm({ init, cage, onSave, onCancel }) {
   );
 }
 
-function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete }) {
+function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, dose, doseCol }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
   const canEdit = useContext(EditCtx);
   const isDragging = drag?.idx === idx;
@@ -164,7 +164,18 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
           )}
         </span>
       </td>
-      <td className="note c">{m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}</td>
+      {doseCol && (
+        <td className="c dose-cell">
+          {dose && (
+            <span className={"dose-now d-" + dose.kind}>
+              {dose.text}{dose.dose && dose.kind !== "done" ? ` · ${dose.dose}` : ""}
+            </span>
+          )}
+        </td>
+      )}
+      <td className="note c">
+        {m.note}{m.weight ? <span className="wt">{m.weight}</span> : null}
+      </td>
       <td className="row-actions">
         {canEdit && <>
           <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}
@@ -348,6 +359,84 @@ function StatusBadge({ value, onChange, disabled }) {
 }
 
 // 케이지에 배정된 스케줄: 접힌 요약 → 클릭하면 회차 펼침
+// 마우스 이름 ↔ 대상 매칭용 정규화: "(F3)" → "F3"
+const normTarget = (v) => String(v || "").replace(/[()\s]/g, "").toUpperCase();
+
+// 오늘 날짜 기준 한 대상의 투여 상태
+function doseToday(items, target) {
+  if (!items || !items.length) return null;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const sorted = [...items].sort(byDate);
+  const esc = String(target).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");   // M1.3 같은 이름의 점(.) 처리
+  const strip = (c) => String(c || "").replace(new RegExp("^" + esc + "\\s*", "i"), "") || c;
+  for (const r of sorted) {
+    const sp = cycleSpan(r.dates); if (!sp) continue;
+    if (t >= sp.a && t <= sp.b) {
+      const day = Math.round((t - sp.a) / 86400000) + 1;
+      const len = Math.round((sp.b - sp.a) / 86400000) + 1;
+      return { kind: "on", text: `투여 중 · ${strip(r.cycle)} (${day}/${len}일)`, dose: r.dose };
+    }
+  }
+  const next = sorted.find((r) => { const sp = cycleSpan(r.dates); return sp && sp.a > t; });
+  if (next) return { kind: "next", text: `다음 ${next.dates}`, dose: next.dose };
+  return { kind: "done", text: `완료 · ${doneSummary(sorted).doses}` };
+}
+
+// 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
+function collectToday(cages, byCage, doxRows) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const on = [], soon = [];
+  cages.forEach((c) => {
+    if (!c.sched_id || c.done) return;
+    const labels = new Set((byCage[c.id] || []).map((m) => normTarget(m.label)));
+    (doxRows || []).filter((r) => r.sched_id === c.sched_id).forEach((r) => {
+      const k = normTarget(r.target);
+      if (k && !labels.has(k)) return;                 // 이 케이지에 없는 마우스의 Cycle은 제외
+      const sp = cycleSpan(r.dates); if (!sp) return;
+      const who = (r.target || "").trim() || "전체";
+      if (t >= sp.a && t <= sp.b) {
+        const day = Math.round((t - sp.a) / 86400000) + 1;
+        const len = Math.round((sp.b - sp.a) / 86400000) + 1;
+        on.push({ key: c.id + r.id, text: `${c.label} · ${who} ${day}/${len}일${r.dose ? ` · ${r.dose}` : ""}` });
+      } else {
+        const diff = Math.round((sp.a - t) / 86400000);
+        if (diff > 0 && diff <= 3)
+          soon.push({ key: c.id + r.id, diff,
+            text: `${c.label} · ${who} ${sp.a.getMonth() + 1}/${sp.a.getDate()} (${diff === 1 ? "내일" : `${diff}일 후`})${r.dose ? ` · ${r.dose}` : ""}` });
+      }
+    });
+  });
+  soon.sort((a, b) => a.diff - b.diff);
+  return { on, soon };
+}
+
+// 페이지 맨 위 여백의 흐르는 알림 띠 (없으면 숨김 · 마우스를 올리면 멈춤)
+function Ticker({ cages, byCage, doxRows }) {
+  const { on, soon } = collectToday(cages, byCage, doxRows);
+  if (!on.length && !soon.length) return null;
+
+  const seq = (
+    <span className="ticker-seq">
+      {on.length > 0 && <span className="ticker-h on">● 오늘 투여</span>}
+      {on.map((x) => <span key={x.key} className="ticker-item on">{x.text}</span>)}
+      {soon.length > 0 && <span className="ticker-h">○ 곧 시작</span>}
+      {soon.map((x) => <span key={x.key} className="ticker-item">{x.text}</span>)}
+    </span>
+  );
+  // 글자 수에 비례해 속도 조절 (짧으면 너무 빨리 돌지 않게 최소 22초)
+  const chars = [...on, ...soon].reduce((n, x) => n + x.text.length, 0);
+  const dur = Math.max(22, Math.round(chars * 0.35));
+
+  return (
+    <div className="ticker" role="status" aria-label="오늘 투여 알림">
+      <div className="ticker-track" style={{ animationDuration: `${dur}s` }}>
+        {seq}
+        <span aria-hidden="true">{seq}</span>
+      </div>
+    </div>
+  );
+}
+
 // 완료된 대상 한 줄 요약 (onToggle 이 있으면 눌러서 펼침)
 function DoneLine({ target, items, open, onToggle }) {
   const { doses, range } = doneSummary(items);
@@ -747,6 +836,11 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
     window.addEventListener("pointerup", up);
   };
 
+  const schedKeys = new Set((doxRows || [])
+    .filter((r) => cage.sched_id && r.sched_id === cage.sched_id)
+    .map((r) => normTarget(r.target)).filter(Boolean));
+  const doseCol = mice.some((m) => schedKeys.has(normTarget(m.label)));
+
   // 훅 호출이 모두 끝난 뒤에 조건부 렌더링
   if (q && list.length === 0) return null;
 
@@ -849,7 +943,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
               <th className="c" style={{ width: "11%" }}>{cage.g1_label || "G1"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g2_label || "G2"}</th>
               <th className="c" style={{ width: "11%" }}>{cage.g3_label || "G3"}</th>
-              <th className="c" style={{ width: "20%" }}>DOB</th>
+              <th className="c" style={{ width: doseCol ? "17%" : "20%" }}>DOB</th>
+              {doseCol && <th className="c" style={{ width: "24%" }}>투여</th>}
               <th className="c">비고</th>
               <th style={{ width: "72px" }}></th>
             </tr>
@@ -857,7 +952,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
           <tbody>
             {list.map((m, idx) => {
               if (editing === m.id) {
-                return <MouseForm key={m.id} init={m} cage={cage} onCancel={() => setEditing(null)}
+                return <MouseForm key={m.id} init={m} cage={cage} cols={doseCol ? 8 : 7} onCancel={() => setEditing(null)}
                   onSave={async (f) => { await ops.update(m.id, f, me, `${cage.label} / ${f.label}`); setEditing(null); }} />;
               }
               const w = ageWeeks(m.dob);
@@ -866,11 +961,18 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
               return (
                 <MouseRow key={m.id} m={m} idx={idx} cage={cage} ops={ops} me={me} canDrag={canDrag}
                   isBaby={isBaby} w={w} drag={drag} onGrab={onGrab}
-                  setEditing={setEditing} confirmDelete={confirmDelete} />
+                  setEditing={setEditing} confirmDelete={confirmDelete} doseCol={doseCol}
+                  dose={(() => {
+                    if (!cage.sched_id || !m.label) return null;
+                    const key = normTarget(m.label);
+                    const items = (doxRows || []).filter((r) =>
+                      r.sched_id === cage.sched_id && normTarget(r.target) === key);
+                    return doseToday(items, key);
+                  })()} />
               );
             })}
             {editing === "new" && (
-              <MouseForm cage={cage} onCancel={() => setEditing(null)}
+              <MouseForm cage={cage} cols={doseCol ? 8 : 7} onCancel={() => setEditing(null)}
                 onSave={async (f) => { await ops.add({ ...f, cage_id: cage.id, sort: mice.length + 1 }, me, `${cage.label} / ${f.label}`); setEditing(null); }} />
             )}
           </tbody>
@@ -970,6 +1072,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   return (
     <AgeUnitCtx.Provider value={{ unit: ageUnit, cycle: cycleAge }}>
     <EditCtx.Provider value={canEdit}>
+    <Ticker cages={cages} byCage={byCage} doxRows={doxRows} />
     <div className="app">
       <header className="top">
         <div className="wrap top-in">
@@ -1046,6 +1149,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
           </span>
           {canEdit && <button className="btn btn-p" onClick={addCage}><Plus size={15} /> 케이지 추가</button>}
         </div>
+
 
 
         {cageOps.loading ? <p className="muted">불러오는 중…</p> :
