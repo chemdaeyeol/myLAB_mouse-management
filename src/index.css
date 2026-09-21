@@ -609,3 +609,26 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
   .ticker{overflow-x:auto}
   .ticker-track{animation:none}
 }
+
+/* 메모 아이콘 (Mouse 이름 옆 / 케이지 헤더) */
+.memo-btn{display:inline-flex;align-items:center;vertical-align:middle;margin-left:6px;padding:3px;
+  border:none;background:none;border-radius:6px;color:var(--t3);cursor:pointer;
+  transition:opacity .14s,background .14s,color .14s}
+.memo-btn:not(.has){opacity:0}
+tr:hover .memo-btn:not(.has){opacity:.55}
+.memo-btn.has{color:#C2610B}
+.memo-btn:hover{background:var(--bg);opacity:1}
+@media (hover:none){.memo-btn:not(.has){opacity:.45}}
+.iconbtn.memo-on{color:#C2610B}
+
+/* 메모 팝업 */
+.modal.memo-modal{max-width:460px;width:100%;text-align:left}
+.memo-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:15px}
+.memo-head .iconbtn{margin-left:auto}
+.memo-text{width:100%;min-height:130px;resize:vertical;font-family:inherit;line-height:1.55}
+.memo-wt{display:flex;align-items:center;gap:10px;margin-top:10px}
+.memo-wt span{font-size:12.5px;font-weight:600;color:var(--t2);white-space:nowrap}
+.memo-wt .in{max-width:140px}
+.memo-view{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid var(--sep-soft);
+  border-radius:10px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.memo-view-wt{margin:10px 0 0;font-size:13px;color:var(--t2)}
