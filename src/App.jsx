@@ -180,6 +180,21 @@ function MouseForm({ init, cage, onSave, onCancel, cols = 6 }) {
 function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, dose, doseCol, onMemo }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
   const canEdit = useContext(EditCtx);
+  const [tip, setTip] = useState(null);     // 메모 말풍선 위치 {left, top, below}
+  const tipText = [m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n");
+  useEffect(() => {                          // 스크롤하면 말풍선 닫기 (위치 어긋남 방지)
+    if (!tip) return;
+    const off = () => setTip(null);
+    window.addEventListener("scroll", off, true);
+    return () => window.removeEventListener("scroll", off, true);
+  }, [tip]);
+  const showTip = (e) => {
+    if (!tipText || drag) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const below = r.top < 90;                // 위 공간이 부족하면 아래로
+    const left = Math.min(Math.max(8, r.left - 6), window.innerWidth - 300);
+    setTip({ left, top: below ? r.bottom + 8 : r.top - 8, below });
+  };
   const isDragging = drag?.idx === idx;
   const isTarget = drag && drag.mode === "move" && drag.overIdx === idx && drag.idx !== idx;
 
@@ -197,7 +212,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       <td className="mono strong c">
         {/* 마우스를 올리면 메모가 말풍선으로 (유전자형 칩과 같은 방식) · 수정은 편집 모드에서 아이콘 클릭 */}
         <span className={"mouse-cell" + (m.note || m.weight ? " has" : "") + (canEdit ? " editable" : "")}
-          data-tip={[m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n") || undefined}
+          onMouseEnter={showTip} onMouseLeave={() => setTip(null)}
           onClick={canEdit ? (e) => {
             if (Date.now() - lastDragEnd < 400) return;   // 드래그 직후 클릭은 무시
             e.stopPropagation(); onMemo(m);
@@ -206,6 +221,10 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
           {/* 알림 점: 메모 있으면 주황, 편집 모드에서 없으면 올렸을 때 빈 동그라미 */}
           {(m.note || m.weight || canEdit) && <span className="memo-dot" aria-hidden="true" />}
         </span>
+        {tip && createPortal(
+          <div className={"memo-tip" + (tip.below ? " below" : "")} style={{ left: tip.left, top: tip.top }}>
+            {tipText}
+          </div>, document.body)}
       </td>
       <td className="c">{m.g1 && <span className={"gchip g-" + (m.g1 || "").toUpperCase()} data-tip={`${cage.g1_label || "G1"} · ${genoTip(m.g1)}`}>{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className={"gchip g-" + (m.g2 || "").toUpperCase()} data-tip={`${cage.g2_label || "G2"} · ${genoTip(m.g2)}`}>{m.g2}</span>}</td>
