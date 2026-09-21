@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { createPortal } from "react-dom";
 import {
   Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp, Search,
-  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical, CalendarDays, StickyNote,
+  History, GripVertical, Rat, CheckCircle2, RotateCcw, Lock, Unlock, MessageCircle, Users, FlaskConical, CalendarDays, StickyNote, Microscope,
 } from "lucide-react";
 import { hasConfig, supabase, OWNER_EMAIL } from "./supabaseClient";
 import { useTable } from "./db";
@@ -200,7 +200,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
 
   return (
     <tr
-      className={(isBaby ? "baby" : "") +
+      className={(isBaby ? "baby" : "") + (m.prep ? " prepped" : "") +
         (isDragging ? " swiping" : "") +
         (isDragging && drag.mode === "delete" && drag.armed ? " armed" : "") +
         (isTarget ? (drag.side === "above" ? " drop-above" : " drop-below") : "")}
@@ -217,6 +217,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
             if (Date.now() - lastDragEnd < 400) return;   // 드래그 직후 클릭은 무시
             e.stopPropagation(); onMemo(m);
           } : undefined}>
+          {m.prep && <span className="prep-tag">Prep</span>}
           {m.label}
           {/* 알림 점: 메모 있으면 주황, 편집 모드에서 없으면 올렸을 때 빈 동그라미 */}
           {(m.note || m.weight || canEdit) && <span className="memo-dot" aria-hidden="true" />}
@@ -250,6 +251,10 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       )}
       <td className="row-actions">
         {canEdit && <>
+          <button className={"iconbtn" + (m.prep ? " prep-on" : "")}
+            title={m.prep ? "Prep 완료 취소" : "Prep 완료로 표시"}
+            onClick={() => ops.update(m.id, { prep: !m.prep }, me, `${cage.label} / ${m.label} Prep ${m.prep ? "취소" : "완료"}`)}
+            onPointerDown={(e) => e.stopPropagation()}><Microscope size={13} /></button>
           <button className="iconbtn" title="수정" onClick={() => setEditing(m.id)}
             onPointerDown={(e) => e.stopPropagation()}><Pencil size={13} /></button>
           <button className="iconbtn danger" title="삭제" onClick={() => confirmDelete(m)}
@@ -810,14 +815,16 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
   }, [mice, q]);
 
   const counts = useMemo(() => {
-    let male = 0, female = 0, baby = 0;
+    let male = 0, female = 0, baby = 0, prep = 0, total = 0;
     mice.forEach((m) => {
+      if (m.prep) { prep++; return; }            // Prep 완료는 남은 마우스 수에서 제외
       const L = (m.label || "").toUpperCase();
-      if (L.startsWith("BABY")) baby++;
-      else if (L.startsWith("M")) male++;
+      if (L.startsWith("BABY")) { baby++; return; }
+      total++;
+      if (L.startsWith("M")) male++;
       else if (L.startsWith("F")) female++;
     });
-    return { male, female, baby, total: mice.length - baby };
+    return { male, female, baby, prep, total };
   }, [mice]);
 
   const confirmDelete = async (mouse) => {
@@ -941,6 +948,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
             {cage.note && <span className="cage-note">{cage.note}</span>}
             <span className="cage-counts">
               ♂{counts.male} · ♀{counts.female}{counts.baby ? " · baby O" : ""} · 총 {counts.total}
+              {counts.prep ? ` · Prep ${counts.prep}` : ""}
             </span>
             <span className="cage-status">
               {asTags(cage.tags).map((k) => {
@@ -1041,8 +1049,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
                   dose={(() => {
                     if (!cage.sched_id || !m.label) return null;
                     const key = normTarget(m.label);
-                    const items = (doxRows || []).filter((r) =>
-                      r.sched_id === cage.sched_id && normTarget(r.target) === key);
+                    const cyc = (doxRows || []).filter((r) => r.sched_id === cage.sched_id);
+                    // 직접 지정된 Cycle이 있으면 그것, 없으면 케이지 전체 Cycle
+                    const own = cyc.filter((r) => normTarget(r.target) === key);
+                    const items = own.length ? own : cyc.filter((r) => !normTarget(r.target));
                     return doseToday(items, key);
                   })()} />
               );
@@ -1140,9 +1150,11 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   const totalMice = gCages.reduce((n, c) => n + (byCage[c.id]?.length || 0), 0);
   const tabDoseCol = allG.some((c) => {
     if (!c.sched_id) return false;
-    const keys = new Set(doxRows.filter((r) => r.sched_id === c.sched_id)
-      .map((r) => normTarget(r.target)).filter(Boolean));
-    return (byCage[c.id] || []).some((m) => keys.has(normTarget(m.label)));
+    const cyc = doxRows.filter((r) => r.sched_id === c.sched_id);
+    const mm = byCage[c.id] || [];
+    if (cyc.some((r) => !normTarget(r.target)) && mm.length) return true;   // 케이지 전체 Cycle
+    const keys = new Set(cyc.map((r) => normTarget(r.target)).filter(Boolean));
+    return mm.some((m) => keys.has(normTarget(m.label)));
   });
   const recentLogs = [...logs].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")).slice(0, 12);
 

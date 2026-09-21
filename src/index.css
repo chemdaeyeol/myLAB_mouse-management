@@ -651,3 +651,11 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 /* 이름을 가리키는 꼬리 */
 .memo-tip::after{content:"";position:absolute;left:50%;top:100%;transform:translateX(-50%);
   border:5px solid transparent;border-top-color:#1D1D1F}
+
+/* Prep 완료 마우스: 행을 흐리게, 이름 왼쪽에 Prep 표시 (이름 위치는 그대로) */
+.mtable tr.prepped > td:not(.row-actions){opacity:.45}
+.prep-tag{position:absolute;right:calc(100% + 7px);top:50%;transform:translateY(-50%);
+  font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:.02em;
+  color:var(--t2);background:var(--bg);border:1px solid var(--sep);border-radius:5px;padding:1px 5px;
+  white-space:nowrap}
+.iconbtn.prep-on{color:var(--t1);background:var(--bg)}
