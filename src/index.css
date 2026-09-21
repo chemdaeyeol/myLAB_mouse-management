@@ -610,15 +610,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
   .ticker-track{animation:none}
 }
 
-/* 메모 아이콘 (Mouse 이름 옆 / 케이지 헤더) */
-.memo-btn{display:inline-flex;align-items:center;vertical-align:middle;margin-left:6px;padding:3px;
-  border:none;background:none;border-radius:6px;color:var(--t3);cursor:pointer;
-  transition:opacity .14s,background .14s,color .14s}
-.memo-btn:not(.has){opacity:0}
-tr:hover .memo-btn:not(.has){opacity:.55}
-.memo-btn.has{color:#C2610B}
-.memo-btn:hover{background:var(--bg);opacity:1}
-@media (hover:none){.memo-btn:not(.has){opacity:.45}}
+/* 케이지 헤더 메모 버튼 */
 .iconbtn.memo-on{color:#C2610B}
 
 /* 메모 팝업 */
@@ -647,3 +639,14 @@ tr:hover .memo-btn:not(.has){opacity:.55}
 .mouse-cell[data-tip]:hover::before{
   content:"";position:absolute;left:50%;bottom:calc(100% + 3px);transform:translateX(-50%);
   border:5px solid transparent;border-top-color:#1D1D1F;z-index:70;pointer-events:none}
+
+/* Mouse 메모 알림 점 (아이폰·맥 독 스타일) — 이름 위치는 그대로 */
+.memo-dot{position:absolute;top:-3px;right:-10px;width:8px;height:8px;border-radius:50%;
+  background:#FF9500;box-shadow:0 0 0 2px var(--surface);pointer-events:none;
+  opacity:0;transform:scale(.6);transition:opacity .15s,transform .15s}
+.mouse-cell.has .memo-dot{opacity:1;transform:scale(1)}
+/* 편집 모드: 메모 없는 이름에 올리면 빈 동그라미로 '추가 가능' 표시 */
+.mouse-cell.editable{cursor:pointer}
+.mouse-cell.editable:not(.has):hover .memo-dot{opacity:1;transform:scale(1);
+  background:var(--surface);box-shadow:0 0 0 1.5px var(--t3)}
+.mouse-cell.editable:hover{color:var(--blue-d)}

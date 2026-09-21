@@ -106,6 +106,9 @@ function Field({ label, children }) {
   return <label className="field"><span className="flabel">{label}</span>{children}</label>;
 }
 
+// 드래그로 순서를 바꾼 직후 이름 클릭(메모 열기)이 같이 일어나지 않게
+let lastDragEnd = 0;
+
 // 메모 팝업 (케이지·마우스 공용) — 편집 모드면 수정, 아니면 읽기만
 function MemoModal({ title, sub, value, weight, withWeight, canEdit, onSave, onClose }) {
   const [text, setText] = useState(value || "");
@@ -193,15 +196,15 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       onPointerDown={(e) => canEdit && canDrag && onGrab(e, idx)}>
       <td className="mono strong c">
         {/* 마우스를 올리면 메모가 말풍선으로 (유전자형 칩과 같은 방식) · 수정은 편집 모드에서 아이콘 클릭 */}
-        <span className="mouse-cell"
-          data-tip={[m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n") || undefined}>
+        <span className={"mouse-cell" + (m.note || m.weight ? " has" : "") + (canEdit ? " editable" : "")}
+          data-tip={[m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n") || undefined}
+          onClick={canEdit ? (e) => {
+            if (Date.now() - lastDragEnd < 400) return;   // 드래그 직후 클릭은 무시
+            e.stopPropagation(); onMemo(m);
+          } : undefined}>
           {m.label}
-          {(m.note || m.weight || canEdit) && (
-            <button className={"memo-btn" + (m.note || m.weight ? " has" : "")}
-              aria-label={canEdit ? "메모 수정" : "메모 보기"}
-              onClick={(e) => { e.stopPropagation(); onMemo(m); }}
-              onPointerDown={(e) => e.stopPropagation()}><StickyNote size={13} /></button>
-          )}
+          {/* 알림 점: 메모 있으면 주황, 편집 모드에서 없으면 올렸을 때 빈 동그라미 */}
+          {(m.note || m.weight || canEdit) && <span className="memo-dot" aria-hidden="true" />}
         </span>
       </td>
       <td className="c">{m.g1 && <span className={"gchip g-" + (m.g1 || "").toUpperCase()} data-tip={`${cage.g1_label || "G1"} · ${genoTip(m.g1)}`}>{m.g1}</span>}</td>
@@ -863,6 +866,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
       const d = dragRef.current; dragRef.current = null;
       document.body.classList.remove("dragging-row");
       if (!d || !d.active) { setDrag(null); return; }
+      lastDragEnd = Date.now();
 
       if (d.mode === "delete") {
         const dx = d.lastDx || 0;
