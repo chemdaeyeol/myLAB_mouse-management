@@ -571,7 +571,7 @@ body.can-edit .mtable tbody tr:active{cursor:grabbing}
 .cdone-chev{margin-left:auto;color:var(--t3)}
 
 /* 비고칸: 오늘 기준 투여 상태 (스케줄 자동 연동) */
-.dose-now{display:inline-block;font-size:12px;font-weight:600;border-radius:980px;
+.dose-now{display:inline-block;font-size:13.5px;font-weight:700;border-radius:980px;
   padding:3px 10px;margin-right:6px;white-space:nowrap;border:1px solid transparent}
 .dose-now.d-on{color:#9A4A06;background:#FDF0E1;border-color:#C2610B40}
 .dose-now.d-next{color:var(--t2);background:var(--bg);border-color:var(--sep-soft)}
@@ -632,3 +632,18 @@ tr:hover .memo-btn:not(.has){opacity:.55}
 .memo-view{margin:0;padding:12px 14px;background:var(--surface-2);border:1px solid var(--sep-soft);
   border-radius:10px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
 .memo-view-wt{margin:10px 0 0;font-size:13px;color:var(--t2)}
+
+/* 투여 칸 여백도 글씨 크기에 맞게 */
+.dose-cell .dose-now{padding:4px 12px}
+
+/* Mouse 메모 말풍선 (유전자형 칩과 같은 스타일, 여러 줄 지원) */
+.mouse-cell{position:relative;display:inline-flex;align-items:center}
+.mouse-cell[data-tip]:hover::after{
+  content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+  width:max-content;max-width:280px;white-space:pre-wrap;text-align:left;
+  background:#1D1D1F;color:#fff;font-family:var(--font);font-size:12px;font-weight:400;line-height:1.45;
+  padding:7px 11px;border-radius:8px;z-index:70;pointer-events:none;
+  box-shadow:0 8px 22px -8px rgba(0,0,0,.45)}
+.mouse-cell[data-tip]:hover::before{
+  content:"";position:absolute;left:50%;bottom:calc(100% + 3px);transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#1D1D1F;z-index:70;pointer-events:none}

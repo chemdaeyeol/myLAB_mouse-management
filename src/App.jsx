@@ -192,13 +192,17 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       data-row={idx} data-cage={cage.id}
       onPointerDown={(e) => canEdit && canDrag && onGrab(e, idx)}>
       <td className="mono strong c">
-        {m.label}
-        {(m.note || m.weight || canEdit) && (
-          <button className={"memo-btn" + (m.note || m.weight ? " has" : "")}
-            title={m.note || (m.weight ? `무게 ${m.weight}` : "메모 추가")}
-            onClick={(e) => { e.stopPropagation(); onMemo(m); }}
-            onPointerDown={(e) => e.stopPropagation()}><StickyNote size={13} /></button>
-        )}
+        {/* 마우스를 올리면 메모가 말풍선으로 (유전자형 칩과 같은 방식) · 수정은 편집 모드에서 아이콘 클릭 */}
+        <span className="mouse-cell"
+          data-tip={[m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n") || undefined}>
+          {m.label}
+          {(m.note || m.weight || canEdit) && (
+            <button className={"memo-btn" + (m.note || m.weight ? " has" : "")}
+              aria-label={canEdit ? "메모 수정" : "메모 보기"}
+              onClick={(e) => { e.stopPropagation(); onMemo(m); }}
+              onPointerDown={(e) => e.stopPropagation()}><StickyNote size={13} /></button>
+          )}
+        </span>
       </td>
       <td className="c">{m.g1 && <span className={"gchip g-" + (m.g1 || "").toUpperCase()} data-tip={`${cage.g1_label || "G1"} · ${genoTip(m.g1)}`}>{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className={"gchip g-" + (m.g2 || "").toUpperCase()} data-tip={`${cage.g2_label || "G2"} · ${genoTip(m.g2)}`}>{m.g2}</span>}</td>
