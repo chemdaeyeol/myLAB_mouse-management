@@ -315,12 +315,28 @@ function cycleSpan(dates) {
   return { a, b };
 }
 const isAllDone = (items) => items.length > 0 && items.every((r) => r.status === "완료");
-// 완료 묶음 요약: "0.2mg × 4 Cycle" 또는 "총 5 Cycle (0.2mg × 4, 2mg × 1)" + 전체 기간
-function doneSummary(items) {
+// Cycle 하나의 투여 일수 (26.09.20~24 → 5)
+const spanDays = (sp) => (sp ? Math.round((sp.b - sp.a) / 86400000) + 1 : 0);
+// TAM은 며칠 연속 주사라 일수(D)로, DOX 등은 Cycle 수로 센다
+const isTamKind = (kind) => String(kind || "").trim().toUpperCase() === "TAM";
+
+// 완료 묶음 요약
+//  DOX: "0.2mg × 4 Cycle" / "총 5 Cycle (0.2mg × 4, 2mg × 1)"
+//  TAM: "10 mg/ml × 5D"   / "총 8D (10 mg/ml × 5D, 5 mg/ml × 3D)"
+function doneSummary(items, kind) {
+  const tam = isTamKind(kind);
   const byDose = new Map();
-  items.forEach((r) => { const d = (r.dose || "").trim() || "용량 미기재"; byDose.set(d, (byDose.get(d) || 0) + 1); });
-  const parts = [...byDose].map(([d, n]) => `${d} × ${n}`);
-  const doses = parts.length === 1 ? `${parts[0]} Cycle` : `총 ${items.length} Cycle (${parts.join(", ")})`;
+  items.forEach((r) => {
+    const d = (r.dose || "").trim() || "용량 미기재";
+    const add = tam ? spanDays(cycleSpan(r.dates)) : 1;
+    byDose.set(d, (byDose.get(d) || 0) + add);
+  });
+  const unit = tam ? "D" : " Cycle";
+  const total = [...byDose.values()].reduce((a, b) => a + b, 0);
+  const parts = [...byDose].map(([d, n]) => (tam ? `${d} × ${n}D` : `${d} × ${n}`));
+  const doses = parts.length === 1
+    ? (tam ? parts[0] : `${parts[0]} Cycle`)
+    : `총 ${total}${unit} (${parts.join(", ")})`;
   const first = cycleSpan(items[0].dates), last = cycleSpan(items[items.length - 1].dates);
   const range = first && last ? fmtRange(first.a, last.b) : "";
   return { doses, range };
@@ -438,26 +454,48 @@ function StatusBadge({ value, onChange, disabled }) {
 // 케이지에 배정된 스케줄: 접힌 요약 → 클릭하면 회차 펼침
 // 마우스 이름 ↔ 대상 매칭용 정규화: "(F3)" → "F3"
 const normTarget = (v) => String(v || "").replace(/[()\s]/g, "").toUpperCase();
+// 대상이 비어 있거나 케이지 이름("IHC-14-1", "IHC-14-1 (CNT)")이면 케이지 전체 Cycle로 본다
+const isCageWide = (target, cageLabel) => {
+  const k = normTarget(target);
+  if (!k) return true;
+  const full = normTarget(cageLabel);
+  const base = normTarget(String(cageLabel || "").replace(/\([^)]*\)/g, ""));   // 괄호 부분 제외
+  return k === full || k === base;
+};
 
-// 오늘 날짜 기준 한 대상의 투여 상태
-// 투여 칸 요약: 진행단계 · 진행된 Cycle 수 · 농도 (세부 날짜는 아래 스케줄에서)
-function doseToday(items) {
+// 투여 칸 요약: 진행단계 · 진행량 · 농도 (세부 날짜는 아래 스케줄에서)
+//  DOX: 진행된 Cycle 수 (지금 돌고 있는 회차 포함) → "투여 중 · 2 Cycle · 2 mg/ml"
+//  TAM: 투여 일수              → "투여 중 · 3/5D · 10 mg/ml", "완료 · 5D · 10 mg/ml"
+function doseToday(items, kind) {
   if (!items || !items.length) return null;
+  const tam = isTamKind(kind);
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const sorted = [...items].sort(byDate);
   const spans = sorted.map((r) => cycleSpan(r.dates));
-  // 진행된 Cycle = 완료 표시했거나 이미 시작된 회차 (지금 돌고 있는 회차 포함)
+  const isDone = (r, i) => r.status === "완료" || (spans[i] && spans[i].b < t);
   const started = sorted.filter((r, i) => r.status === "완료" || (spans[i] && spans[i].a <= t));
   // 사용한 농도 (중간에 바꿨으면 모두)
   const doseOf = (list) => [...new Set(list.map((r) => (r.dose || "").trim()).filter(Boolean))].join(", ");
-  const line = (stage, n, dose) => [stage, n ? `${n} Cycle` : null, dose || null].filter(Boolean).join(" · ");
+  const line = (stage, amount, dose) => [stage, amount || null, dose || null].filter(Boolean).join(" · ");
+
+  const totalD = spans.reduce((n, sp) => n + spanDays(sp), 0);
+  const doneD = sorted.reduce((n, r, i) => n + (isDone(r, i) ? spanDays(spans[i]) : 0), 0);
+  const cycles = (n) => (n ? `${n} Cycle` : null);
 
   const allDone = sorted.every((r) => r.status === "완료") || spans.every((sp) => sp && sp.b < t);
-  if (allDone) return { kind: "done", text: line("완료", sorted.length, doseOf(sorted)) };
+  if (allDone) return { kind: "done", text: line("완료", tam ? `${totalD}D` : cycles(sorted.length), doseOf(sorted)) };
+
   const cur = spans.findIndex((sp) => sp && t >= sp.a && t <= sp.b);
-  if (cur >= 0) return { kind: "on", text: line("투여 중", started.length, sorted[cur].dose) };
-  if (started.length === 0) return { kind: "next", text: line("예정", 0, sorted[0].dose) };
-  return { kind: "next", text: line("휴식", started.length, doseOf(started)) };
+  if (cur >= 0) {
+    if (tam) {
+      const before = sorted.reduce((n, r, i) => n + (i < cur ? spanDays(spans[i]) : 0), 0);
+      const today = Math.round((t - spans[cur].a) / 86400000) + 1;   // 이번 Cycle의 몇째 날
+      return { kind: "on", text: line("투여 중", `${before + today}/${totalD}D`, sorted[cur].dose) };
+    }
+    return { kind: "on", text: line("투여 중", cycles(started.length), sorted[cur].dose) };
+  }
+  if (started.length === 0) return { kind: "next", text: line("예정", tam ? `${totalD}D` : null, sorted[0].dose) };
+  return { kind: "next", text: line("휴식", tam ? `${doneD}/${totalD}D` : cycles(started.length), doseOf(started)) };
 }
 
 // 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
@@ -469,7 +507,7 @@ function collectToday(cages, byCage, doxRows) {
     const labels = new Set((byCage[c.id] || []).map((m) => normTarget(m.label)));
     (doxRows || []).filter((r) => r.sched_id === c.sched_id).forEach((r) => {
       const k = normTarget(r.target);
-      if (k && !labels.has(k)) return;                 // 이 케이지에 없는 마우스의 Cycle은 제외
+      if (k && !labels.has(k) && !isCageWide(r.target, c.label)) return;   // 이 케이지에 없는 마우스의 Cycle은 제외
       const sp = cycleSpan(r.dates); if (!sp) return;
       const who = (r.target || "").trim() || "전체";
       if (t >= sp.a && t <= sp.b) {
@@ -516,8 +554,8 @@ function Ticker({ cages, byCage, doxRows }) {
 }
 
 // 완료된 대상 한 줄 요약 (onToggle 이 있으면 눌러서 펼침)
-function DoneLine({ target, items, open, onToggle }) {
-  const { doses, range } = doneSummary(items);
+function DoneLine({ target, items, open, onToggle, kind }) {
+  const { doses, range } = doneSummary(items, kind);
   const Tag = onToggle ? "button" : "div";
   return (
     <Tag className={"cdone" + (onToggle ? " click" : "")} onClick={onToggle}>
@@ -549,7 +587,7 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
         <b>{sched.name}</b>
         <span className="csched-sum">
           {isAllDone(mine) && !hasTargets(mine)
-            ? `완료 · ${doneSummary(sorted).doses}`
+            ? `완료 · ${doneSummary(sorted, sched.kind).doses}`
             : <>완료 {done}/{mine.length}{cur ? ` · 진행 중 ${cur.dates}` : next ? ` · 다음 ${next.dates}` : ""}</>}
         </span>
         {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -559,7 +597,7 @@ function CageSched({ cage, scheds, cycles, ops, me }) {
           {mine.length === 0 && <p className="muted" style={{ margin: "6px 2px" }}>등록된 Cycle이 없어요.</p>}
           {groupCycles(mine).map((grp) => isAllDone(grp.items) ? (
             <div key={grp.target || "_all"} className="cgroup">
-              <DoneLine target={grp.target} items={grp.items} />
+              <DoneLine target={grp.target} items={grp.items} kind={sched.kind} />
             </div>
           ) : (
             <div key={grp.target || "_all"} className="cgroup">
@@ -673,7 +711,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                       return (
                       <div key={grp.target || "_all"} className="cgroup">
                         {isAllDone(grp.items) ? (
-                          <DoneLine target={grp.target} items={grp.items} open={!folded}
+                          <DoneLine target={grp.target} items={grp.items} kind={sc.kind} open={!folded}
                             onToggle={() => setOpenDone((o) => ({ ...o, [gk]: !o[gk] }))} />
                         ) : hasTargets(mine) && (
                           <div className="cgroup-h">{grp.target || "케이지 전체"}<span>{grp.items.length}</span></div>
@@ -1052,8 +1090,8 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
                     const cyc = (doxRows || []).filter((r) => r.sched_id === cage.sched_id);
                     // 직접 지정된 Cycle이 있으면 그것, 없으면 케이지 전체 Cycle
                     const own = cyc.filter((r) => normTarget(r.target) === key);
-                    const items = own.length ? own : cyc.filter((r) => !normTarget(r.target));
-                    return doseToday(items, key);
+                    const items = own.length ? own : cyc.filter((r) => isCageWide(r.target, cage.label));
+                    return doseToday(items, (scheds || []).find((x) => x.id === cage.sched_id)?.kind);
                   })()} />
               );
             })}
@@ -1152,7 +1190,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
     if (!c.sched_id) return false;
     const cyc = doxRows.filter((r) => r.sched_id === c.sched_id);
     const mm = byCage[c.id] || [];
-    if (cyc.some((r) => !normTarget(r.target)) && mm.length) return true;   // 케이지 전체 Cycle
+    if (cyc.some((r) => isCageWide(r.target, c.label)) && mm.length) return true;   // 케이지 전체 Cycle
     const keys = new Set(cyc.map((r) => normTarget(r.target)).filter(Boolean));
     return mm.some((m) => keys.has(normTarget(m.label)));
   });
