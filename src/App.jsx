@@ -342,6 +342,20 @@ function doneSummary(items, kind) {
   return { doses, range };
 }
 
+// 스케줄 머리줄: 적용된 마우스 + Cycle 수만 간단히
+//  케이지 전체  → "5 Cycle"                        (TAM "5D")
+//  마우스별     → "F3 1 · M3 1 · M5 5 · M4 4 Cycle" (TAM "M1 5D · M2 5D")
+function schedAmount(items, kind) {
+  const tam = isTamKind(kind);
+  const amt = (list) => (tam ? list.reduce((n, r) => n + spanDays(cycleSpan(r.dates)), 0) : list.length);
+  if (!items.length) return tam ? "0D" : "0 Cycle";
+  if (!hasTargets(items)) return tam ? `${amt(items)}D` : `${amt(items)} Cycle`;
+  const groups = groupCycles(items);
+  const shown = groups.slice(0, 4).map((g) => `${g.target || "케이지 전체"} ${amt(g.items)}${tam ? "D" : ""}`);
+  const more = groups.length > 4 ? ` 외 ${groups.length - 4}` : "";
+  return shown.join(" · ") + (tam ? "" : " Cycle") + more;
+}
+
 // 투여 n일 / 휴식 m일 패턴으로 Cycle 날짜를 계산
 function buildCycles({ start, on, off, times }) {
   const s0 = new Date(start + "T00:00:00");
@@ -713,11 +727,14 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                 <div className="lib-head" onClick={() => setExpand(on ? null : sc.id)}>
                   <span className="csched-kind">{sc.kind}</span>
                   <b>{sc.name}</b>
-                  <span className="dox-sum">
-                    Cycle {mine.length} · {applied.length
-                      ? `${applied.slice(0, 3).map((c) => c.label).join(", ")}${applied.length > 3 ? ` 외 ${applied.length - 3}` : ""}`
-                      : "배정된 케이지 없음"}
-                  </span>
+                  <span className="dox-sum">{schedAmount(mine, sc.kind)}</span>
+                  {/* 배정된 케이지는 숫자와 헷갈리지 않게 칩으로 */}
+                  {applied.length ? (
+                    <span className="lib-applied">
+                      {applied.slice(0, 3).map((c) => <span key={c.id} className="lib-cchip">{c.label}</span>)}
+                      {applied.length > 3 && <span className="lib-more">외 {applied.length - 3}</span>}
+                    </span>
+                  ) : <span className="lib-none">배정된 케이지 없음</span>}
                   {canEdit && (
                     <span className="lib-act">
                       <button className="iconbtn" title="이름 수정"
