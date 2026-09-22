@@ -634,7 +634,23 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
   const [rename, setRename] = useState(null);
   const [openDone, setOpenDone] = useState({});
   const [rf, setRf] = useState({ name: "", kind: "DOX" });
+  const [showDoneSched, setShowDoneSched] = useState(false);
   useScrollLock(true);
+
+  // 스케줄 진행 상태: 진행 중 / 예정 / 완료 (오늘 날짜 + Cycle 상태 기준)
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const stateOf = (sc) => {
+    const mine = cycles.filter((r) => r.sched_id === sc.id);
+    if (!mine.length) return "plan";
+    const spans = mine.map((r) => cycleSpan(r.dates));
+    if (mine.every((r, i) => r.status === "완료" || (spans[i] && spans[i].b < today))) return "done";
+    if (mine.some((r, i) => r.status === "완료" || r.status === "진행중" || (spans[i] && spans[i].a <= today))) return "run";
+    return "plan";
+  };
+  const byName = (a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true });
+  const byState = { run: [], plan: [], done: [] };
+  [...scheds].sort(byName).forEach((sc) => byState[stateOf(sc)].push(sc));
+  const SECTIONS = [{ key: "run", label: "진행 중" }, { key: "plan", label: "예정" }, { key: "done", label: "완료" }];
 
   const addSched = async () => {
     const name = await askText({ title: "새 투여 스케줄", body: "스케줄 이름을 입력하세요.", placeholder: "예: DOX 0.15mg 3일 사이클", okText: "만들기" });
@@ -652,7 +668,20 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
         </div>
         <div className="lib-modal-body">
           {scheds.length === 0 && <p className="muted" style={{ padding: "10px 2px" }}>등록된 스케줄이 없어요.</p>}
-          {scheds.map((sc) => {
+          {SECTIONS.map((sec) => {
+            const list = byState[sec.key];
+            if (!list.length) return null;
+            const folded = sec.key === "done" && !showDoneSched;   // 완료는 기본 접힘
+            return (
+            <div key={sec.key} className="lib-sec">
+              {sec.key === "done" ? (
+                <button className="lib-sec-h click" onClick={() => setShowDoneSched((v) => !v)}>
+                  {sec.label}<span>{list.length}</span>{folded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                </button>
+              ) : (
+                <div className={"lib-sec-h" + (sec.key === "run" ? " run" : "")}>{sec.label}<span>{list.length}</span></div>
+              )}
+            {!folded && list.map((sc) => {
             const mine = cycles.filter((r) => r.sched_id === sc.id);
             const applied = cages.filter((c) => c.sched_id === sc.id);
             const on = expand === sc.id;
@@ -684,7 +713,11 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                 <div className="lib-head" onClick={() => setExpand(on ? null : sc.id)}>
                   <span className="csched-kind">{sc.kind}</span>
                   <b>{sc.name}</b>
-                  <span className="dox-sum">Cycle {mine.length} · 적용 {applied.length}개 케이지</span>
+                  <span className="dox-sum">
+                    Cycle {mine.length} · {applied.length
+                      ? `${applied.slice(0, 3).map((c) => c.label).join(", ")}${applied.length > 3 ? ` 외 ${applied.length - 3}` : ""}`
+                      : "배정된 케이지 없음"}
+                  </span>
                   {canEdit && (
                     <span className="lib-act">
                       <button className="iconbtn" title="이름 수정"
@@ -797,24 +830,36 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                     {canEdit && (
                       <>
                         <div className="lib-sub">적용 케이지</div>
-                        <div className="lib-cages">
-                          {cages.map((c) => {
-                            const checked = c.sched_id === sc.id;
-                            return (
-                              <label key={c.id} className={"lib-cage" + (checked ? " on" : "")}>
-                                <input type="checkbox" checked={checked}
-                                  onChange={() => cageOps.update(c.id, { sched_id: checked ? null : sc.id }, me,
-                                    `케이지 ${c.label} · ${sc.name} ${checked ? "해제" : "배정"}`)} />
-                                {c.label}
-                              </label>
-                            );
-                          })}
-                        </div>
+                        {GROUPS.map((g) => {
+                          const inTab = cages.filter((c) => c.grp === g.key);
+                          if (!inTab.length) return null;
+                          return (
+                            <div key={g.key} className="lib-cg">
+                              <div className="lib-cg-t">{g.label}</div>
+                              <div className="lib-cages">
+                                {inTab.map((c) => {
+                                  const checked = c.sched_id === sc.id;
+                                  return (
+                                    <label key={c.id} className={"lib-cage" + (checked ? " on" : "")}>
+                                      <input type="checkbox" checked={checked}
+                                        onChange={() => cageOps.update(c.id, { sched_id: checked ? null : sc.id }, me,
+                                          `케이지 ${c.label} · ${sc.name} ${checked ? "해제" : "배정"}`)} />
+                                      {c.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </>
                     )}
                   </div>
                 )}
               </div>
+            );
+          })}
+            </div>
             );
           })}
           {canEdit && <button className="sched-add" onClick={addSched}><Plus size={14} /> 새 스케줄</button>}
@@ -1351,7 +1396,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       </div></footer>
       {schedOpen && (
         <SchedLibrary me={me} scheds={scheds} schedOps={schedOps} cycles={doxRows}
-          cycleOps={doxOps} cages={gCages} cageOps={cageOps} onClose={() => setSchedOpen(false)} />
+          cycleOps={doxOps} cages={cages} cageOps={cageOps} onClose={() => setSchedOpen(false)} />
       )}
       {intro && <IntroModal onClose={() => setIntro(false)} />}
       {chatOpen
