@@ -319,6 +319,8 @@ const isAllDone = (items) => items.length > 0 && items.every((r) => r.status ===
 const spanDays = (sp) => (sp ? Math.round((sp.b - sp.a) / 86400000) + 1 : 0);
 // TAM은 며칠 연속 주사라 일수(D)로, DOX 등은 Cycle 수로 센다
 const isTamKind = (kind) => String(kind || "").trim().toUpperCase() === "TAM";
+// 소수 Cycle 표기: 2 → "2", 1.333 → "1.3"
+const fmtCycle = (x) => (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : x.toFixed(1));
 
 // 완료 묶음 요약
 //  DOX: "0.2mg × 4 Cycle" / "총 5 Cycle (0.2mg × 4, 2mg × 1)"
@@ -342,17 +344,52 @@ function doneSummary(items, kind) {
   return { doses, range };
 }
 
-// 스케줄 머리줄: 적용된 마우스 + Cycle 수만 간단히
-//  케이지 전체  → "5 Cycle"                        (TAM "5D")
-//  마우스별     → "F3 1 · M3 1 · M5 5 · M4 4 Cycle" (TAM "M1 5D · M2 5D")
+// 스케줄 머리줄: 아직 끝나지 않은 마우스(또는 케이지)의 진행된 양만
+//  진행된 양 = 완료 + 지금 투여 중인 회차 (예정은 미리 만들어둔 것이라 세지 않음)
+//  마우스별    → "M5 1 · M4 1 Cycle"   (TAM "M1 3D · M2 3D")
+//  케이지 전체 → "3 Cycle"             (TAM "3D")
+//  모두 끝남 → "모두 완료" / 아직 시작 전 → "시작 전"
 function schedAmount(items, kind) {
   const tam = isTamKind(kind);
-  const amt = (list) => (tam ? list.reduce((n, r) => n + spanDays(cycleSpan(r.dates)), 0) : list.length);
-  if (!items.length) return tam ? "0D" : "0 Cycle";
-  if (!hasTargets(items)) return tam ? `${amt(items)}D` : `${amt(items)} Cycle`;
+  if (!items.length) return "시작 전";
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const done = (r, sp) => r.status === "완료" || (sp && sp.b < t);
+  const progressed = (list) => {
+    const spans = list.map((r) => cycleSpan(r.dates));
+    if (tam) {
+      return list.reduce((n, r, i) => {
+        const sp = spans[i];
+        if (done(r, sp)) return n + spanDays(sp);
+        if (sp && t >= sp.a) return n + Math.round((t - sp.a) / 86400000) + 1;   // 투여 중인 회차는 오늘까지
+        return n;
+      }, 0);
+    }
+    // 완료 회차는 1, 투여 중인 회차는 진행 비율만큼
+    return list.reduce((n, r, i) => {
+      const sp = spans[i];
+      if (sp && t >= sp.a && t <= sp.b) return n + (Math.round((t - sp.a) / 86400000) + 1) / spanDays(sp);
+      if (done(r, sp) || r.status === "진행중") return n + 1;
+      return n;
+    }, 0);
+  };
+  const unit = (n) => (tam ? `${n}D` : fmtCycle(n));
+  const allDone = (list) => list.every((r) => done(r, cycleSpan(r.dates)));
+
+  if (!hasTargets(items)) {
+    if (allDone(items)) return "모두 완료";
+    const n = progressed(items);
+    return n ? (tam ? `${n}D` : `${fmtCycle(n)} Cycle`) : "시작 전";
+  }
   const groups = groupCycles(items);
-  const shown = groups.slice(0, 4).map((g) => `${g.target || "케이지 전체"} ${amt(g.items)}${tam ? "D" : ""}`);
-  const more = groups.length > 4 ? ` 외 ${groups.length - 4}` : "";
+  if (groups.every((g) => allDone(g.items))) return "모두 완료";
+  // 완료된 마우스와 아직 시작 전인 마우스는 제외
+  const active = groups
+    .filter((g) => !allDone(g.items))
+    .map((g) => ({ g, n: progressed(g.items) }))
+    .filter((x) => x.n > 0);
+  if (!active.length) return "시작 전";
+  const shown = active.slice(0, 4).map(({ g, n }) => `${g.target || "케이지 전체"} ${unit(n)}`);
+  const more = active.length > 4 ? ` 외 ${active.length - 4}` : "";
   return shown.join(" · ") + (tam ? "" : " Cycle") + more;
 }
 
@@ -479,7 +516,7 @@ const isCageWide = (target, cageLabel) => {
 
 // 투여 칸 요약: 진행단계 · 진행량 · 농도 (세부 날짜는 아래 스케줄에서)
 //  DOX: 진행된 Cycle 수 (지금 돌고 있는 회차 포함) → "투여 중 · 2 Cycle · 2 mg/ml"
-//  TAM: 투여 일수              → "투여 중 · 3/5D · 10 mg/ml", "완료 · 5D · 10 mg/ml"
+//  TAM: 진행된 투여 일수       → "투여 중 · 3D · 10 mg/ml", "완료 · 5D · 10 mg/ml"
 function doseToday(items, kind) {
   if (!items || !items.length) return null;
   const tam = isTamKind(kind);
@@ -504,12 +541,15 @@ function doseToday(items, kind) {
     if (tam) {
       const before = sorted.reduce((n, r, i) => n + (i < cur ? spanDays(spans[i]) : 0), 0);
       const today = Math.round((t - spans[cur].a) / 86400000) + 1;   // 이번 Cycle의 몇째 날
-      return { kind: "on", text: line("투여 중", `${before + today}/${totalD}D`, sorted[cur].dose) };
+      return { kind: "on", text: line("투여 중", `${before + today}D`, sorted[cur].dose) };
     }
-    return { kind: "on", text: line("투여 중", cycles(started.length), sorted[cur].dose) };
+    // 완료한 회차 + 이번 회차 진행 비율 (9/28~30의 1일째 → +0.3)
+    const len = spanDays(spans[cur]);
+    const dayIdx = Math.round((t - spans[cur].a) / 86400000) + 1;
+    return { kind: "on", text: line("투여 중", `${fmtCycle(cur + dayIdx / len)} Cycle`, sorted[cur].dose) };
   }
-  if (started.length === 0) return { kind: "next", text: line("예정", tam ? `${totalD}D` : null, sorted[0].dose) };
-  return { kind: "next", text: line("휴식", tam ? `${doneD}/${totalD}D` : cycles(started.length), doseOf(started)) };
+  if (started.length === 0) return { kind: "next", text: line("예정", null, sorted[0].dose) };
+  return { kind: "next", text: line("휴식", tam ? `${doneD}D` : cycles(started.length), doseOf(started)) };
 }
 
 // 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
