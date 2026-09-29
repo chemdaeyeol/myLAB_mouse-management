@@ -177,7 +177,7 @@ function MouseForm({ init, cage, onSave, onCancel, cols = 6 }) {
   );
 }
 
-function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, dose, doseCol, onMemo }) {
+function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, doses, doseCol, onMemo }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
   const canEdit = useContext(EditCtx);
   const [tip, setTip] = useState(null);     // 메모 말풍선 위치 {left, top}
@@ -242,11 +242,9 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       </td>
       {doseCol && (
         <td className="c dose-cell">
-          {dose && (
-            <span className={"dose-now d-" + dose.kind}>
-              {dose.text}
-            </span>
-          )}
+          {(doses || []).map((d, i) => (
+            <span key={i} className={"dose-now d-" + d.kind}>{d.text}</span>
+          ))}
         </td>
       )}
       <td className="row-actions">
@@ -506,6 +504,13 @@ function StatusBadge({ value, onChange, disabled }) {
 // 마우스 이름 ↔ 대상 매칭용 정규화: "(F3)" → "F3"
 const normTarget = (v) => String(v || "").replace(/[()\s]/g, "").toUpperCase();
 // 대상이 비어 있거나 케이지 이름("IHC-14-1", "IHC-14-1 (CNT)")이면 케이지 전체 Cycle로 본다
+// 케이지에 배정된 스케줄 목록 (여러 개 가능 · 예전 단일 칸 sched_id도 읽음)
+const schedIdsOf = (c) => {
+  const arr = Array.isArray(c?.sched_ids) ? c.sched_ids.filter(Boolean) : [];
+  if (arr.length) return arr;
+  return c?.sched_id ? [c.sched_id] : [];
+};
+
 const isCageWide = (target, cageLabel) => {
   const k = normTarget(target);
   if (!k) return true;
@@ -514,42 +519,54 @@ const isCageWide = (target, cageLabel) => {
   return k === full || k === base;
 };
 
+// 이 기간 이상 쉬면 "다른 투여 차례"로 본다 (보통 회차 사이 휴식은 2~4일)
+const BREAK_DAYS = 7;
+
+// 진행된 양을 연속 구간별로: 계속 줬으면 "6 Cycle", 중간에 쉬었으면 "3 + 1 Cycle"
+//  완료 회차는 1(TAM은 일수), 투여 중인 회차는 오늘까지의 비율(TAM은 오늘까지 일수), 예정은 세지 않음
+function runsText(sorted, spans, t, tam) {
+  const runs = [];
+  let prevEnd = null;
+  sorted.forEach((r, i) => {
+    const sp = spans[i];
+    if (!sp) return;
+    const rest = prevEnd ? Math.round((sp.a - prevEnd) / 86400000) - 1 : 0;   // 앞 회차와의 휴식 일수
+    if (!runs.length || rest >= BREAK_DAYS) runs.push(0);
+    prevEnd = sp.b;
+    const len = spanDays(sp);
+    let add = 0;
+    if (r.status === "완료" || sp.b < t) add = tam ? len : 1;
+    else if (t >= sp.a) {
+      const d = Math.round((t - sp.a) / 86400000) + 1;
+      add = tam ? d : d / len;
+    }
+    runs[runs.length - 1] += add;
+  });
+  const parts = runs.filter((x) => x > 0).map((x) => (tam ? String(x) : fmtCycle(x)));
+  if (!parts.length) return null;
+  return parts.join(" + ") + (tam ? "D" : " Cycle");
+}
+
 // 투여 칸 요약: 진행단계 · 진행량 · 농도 (세부 날짜는 아래 스케줄에서)
-//  DOX: 진행된 Cycle 수 (지금 돌고 있는 회차 포함) → "투여 중 · 2 Cycle · 2 mg/ml"
-//  TAM: 진행된 투여 일수       → "투여 중 · 3D · 10 mg/ml", "완료 · 5D · 10 mg/ml"
+//  진행량은 연속 구간별 → "투여 중 · 5 + 1.7 Cycle · 2 mg/ml", TAM "완료 · 5 + 3D · 10 mg/ml"
 function doseToday(items, kind) {
   if (!items || !items.length) return null;
   const tam = isTamKind(kind);
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const sorted = [...items].sort(byDate);
   const spans = sorted.map((r) => cycleSpan(r.dates));
-  const isDone = (r, i) => r.status === "완료" || (spans[i] && spans[i].b < t);
   const started = sorted.filter((r, i) => r.status === "완료" || (spans[i] && spans[i].a <= t));
   // 사용한 농도 (중간에 바꿨으면 모두)
   const doseOf = (list) => [...new Set(list.map((r) => (r.dose || "").trim()).filter(Boolean))].join(", ");
   const line = (stage, amount, dose) => [stage, amount || null, dose || null].filter(Boolean).join(" · ");
-
-  const totalD = spans.reduce((n, sp) => n + spanDays(sp), 0);
-  const doneD = sorted.reduce((n, r, i) => n + (isDone(r, i) ? spanDays(spans[i]) : 0), 0);
-  const cycles = (n) => (n ? `${n} Cycle` : null);
+  const amount = runsText(sorted, spans, t, tam);
 
   const allDone = sorted.every((r) => r.status === "완료") || spans.every((sp) => sp && sp.b < t);
-  if (allDone) return { kind: "done", text: line("완료", tam ? `${totalD}D` : cycles(sorted.length), doseOf(sorted)) };
-
+  if (allDone) return { kind: "done", text: line("완료", amount, doseOf(sorted)) };
   const cur = spans.findIndex((sp) => sp && t >= sp.a && t <= sp.b);
-  if (cur >= 0) {
-    if (tam) {
-      const before = sorted.reduce((n, r, i) => n + (i < cur ? spanDays(spans[i]) : 0), 0);
-      const today = Math.round((t - spans[cur].a) / 86400000) + 1;   // 이번 Cycle의 몇째 날
-      return { kind: "on", text: line("투여 중", `${before + today}D`, sorted[cur].dose) };
-    }
-    // 완료한 회차 + 이번 회차 진행 비율 (9/28~30의 1일째 → +0.3)
-    const len = spanDays(spans[cur]);
-    const dayIdx = Math.round((t - spans[cur].a) / 86400000) + 1;
-    return { kind: "on", text: line("투여 중", `${fmtCycle(cur + dayIdx / len)} Cycle`, sorted[cur].dose) };
-  }
+  if (cur >= 0) return { kind: "on", text: line("투여 중", amount, sorted[cur].dose) };
   if (started.length === 0) return { kind: "next", text: line("예정", null, sorted[0].dose) };
-  return { kind: "next", text: line("휴식", tam ? `${doneD}D` : cycles(started.length), doseOf(started)) };
+  return { kind: "next", text: line("휴식", amount, doseOf(started)) };
 }
 
 // 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
@@ -557,9 +574,10 @@ function collectToday(cages, byCage, doxRows) {
   const t = new Date(); t.setHours(0, 0, 0, 0);
   const on = [], soon = [];
   cages.forEach((c) => {
-    if (!c.sched_id || c.done) return;
+    const ids = schedIdsOf(c);
+    if (!ids.length || c.done) return;
     const labels = new Set((byCage[c.id] || []).map((m) => normTarget(m.label)));
-    (doxRows || []).filter((r) => r.sched_id === c.sched_id).forEach((r) => {
+    (doxRows || []).filter((r) => ids.includes(r.sched_id)).forEach((r) => {
       const k = normTarget(r.target);
       if (k && !labels.has(k) && !isCageWide(r.target, c.label)) return;   // 이 케이지에 없는 마우스의 Cycle은 제외
       const sp = cycleSpan(r.dates); if (!sp) return;
@@ -622,10 +640,10 @@ function DoneLine({ target, items, open, onToggle, kind }) {
   );
 }
 
-function CageSched({ cage, scheds, cycles, ops, me }) {
+function CageSched({ cage, schedId, scheds, cycles, ops, me }) {
   const canEdit = useContext(EditCtx);
   const [open, setOpen] = useState(false);
-  const sched = scheds.find((x) => x.id === cage.sched_id);
+  const sched = scheds.find((x) => x.id === schedId);
   if (!sched) return null;
 
   const mine = cycles.filter((r) => r.sched_id === sched.id);
@@ -737,7 +755,7 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
               )}
             {!folded && list.map((sc) => {
             const mine = cycles.filter((r) => r.sched_id === sc.id);
-            const applied = cages.filter((c) => c.sched_id === sc.id);
+            const applied = cages.filter((c) => schedIdsOf(c).includes(sc.id));
             const on = expand === sc.id;
             return (
               <div key={sc.id} className="lib-item">
@@ -895,12 +913,16 @@ function SchedLibrary({ me, scheds, schedOps, cycles, cycleOps, cages, cageOps, 
                               <div className="lib-cg-t">{g.label}</div>
                               <div className="lib-cages">
                                 {inTab.map((c) => {
-                                  const checked = c.sched_id === sc.id;
+                                  const checked = schedIdsOf(c).includes(sc.id);
                                   return (
                                     <label key={c.id} className={"lib-cage" + (checked ? " on" : "")}>
                                       <input type="checkbox" checked={checked}
-                                        onChange={() => cageOps.update(c.id, { sched_id: checked ? null : sc.id }, me,
-                                          `케이지 ${c.label} · ${sc.name} ${checked ? "해제" : "배정"}`)} />
+                                        onChange={() => {
+                                          const cur = schedIdsOf(c);
+                                          const next = checked ? cur.filter((x) => x !== sc.id) : [...cur, sc.id];
+                                          return cageOps.update(c.id, { sched_ids: next, sched_id: next[0] || null }, me,
+                                          `케이지 ${c.label} · ${sc.name} ${checked ? "해제" : "배정"}`);
+                                        }} />
                                       {c.label}
                                     </label>
                                   );
@@ -1186,14 +1208,23 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
                   isBaby={isBaby} w={w} drag={drag} onGrab={onGrab}
                   setEditing={setEditing} confirmDelete={confirmDelete} doseCol={doseCol}
                   onMemo={(mm) => setMemo({ type: "mouse", m: mm })}
-                  dose={(() => {
-                    if (!cage.sched_id || !m.label) return null;
+                  doses={(() => {
+                    const ids = schedIdsOf(cage);
+                    if (!ids.length || !m.label) return [];
                     const key = normTarget(m.label);
-                    const cyc = (doxRows || []).filter((r) => r.sched_id === cage.sched_id);
-                    // 직접 지정된 Cycle이 있으면 그것, 없으면 케이지 전체 Cycle
-                    const own = cyc.filter((r) => normTarget(r.target) === key);
-                    const items = own.length ? own : cyc.filter((r) => isCageWide(r.target, cage.label));
-                    return doseToday(items, (scheds || []).find((x) => x.id === cage.sched_id)?.kind);
+                    const byKind = new Map();   // 같은 종류(DOX끼리)는 Cycle을 이어서 합산
+                    ids.forEach((id) => {
+                      const sc = (scheds || []).find((x) => x.id === id);
+                      const cyc = (doxRows || []).filter((r) => r.sched_id === id);
+                      // 직접 지정된 Cycle이 있으면 그것, 없으면 케이지 전체 Cycle
+                      const own = cyc.filter((r) => normTarget(r.target) === key);
+                      const items = own.length ? own : cyc.filter((r) => isCageWide(r.target, cage.label));
+                      if (!items.length) return;
+                      const k = isTamKind(sc?.kind) ? "TAM" : String(sc?.kind || "DOX").trim().toUpperCase();
+                      if (!byKind.has(k)) byKind.set(k, { kind: sc?.kind, items: [] });
+                      byKind.get(k).items.push(...items);
+                    });
+                    return [...byKind.values()].map((g) => doseToday(g.items, g.kind)).filter(Boolean);
                   })()} />
               );
             })}
@@ -1209,7 +1240,10 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
         <button className="add-row" onClick={() => setEditing("new")}><Plus size={14} /> Mouse 추가</button>
       )}
 
-      {open && <CageSched cage={cage} scheds={scheds} cycles={doxRows} ops={doxOps} me={me} />}
+      {open && schedIdsOf(cage)
+        .map((id) => (scheds || []).find((x) => x.id === id)).filter(Boolean)
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), undefined, { numeric: true }))
+        .map((sc) => <CageSched key={sc.id} cage={cage} schedId={sc.id} scheds={scheds} cycles={doxRows} ops={doxOps} me={me} />)}
 
       {memo && (memo.type === "cage" ? (
         <MemoModal title={`${cage.label} 메모`} sub="케이지" value={cage.memo} canEdit={canEdit}
@@ -1289,8 +1323,9 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
   mice.forEach((m) => { (byCage[m.cage_id] = byCage[m.cage_id] || []).push(m); });
   const totalMice = gCages.reduce((n, c) => n + (byCage[c.id]?.length || 0), 0);
   const tabDoseCol = allG.some((c) => {
-    if (!c.sched_id) return false;
-    const cyc = doxRows.filter((r) => r.sched_id === c.sched_id);
+    const ids = schedIdsOf(c);
+    if (!ids.length) return false;
+    const cyc = doxRows.filter((r) => ids.includes(r.sched_id));
     const mm = byCage[c.id] || [];
     if (cyc.some((r) => isCageWide(r.target, c.label)) && mm.length) return true;   // 케이지 전체 Cycle
     const keys = new Set(cyc.map((r) => normTarget(r.target)).filter(Boolean));
