@@ -971,9 +971,17 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
   const t = CAGE_TYPES[cage.type] || CAGE_TYPES.other;
 
   const list = useMemo(() => {
-    if (!q) return mice;
-    const s = q.toLowerCase();
-    return mice.filter((m) => [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(s));
+    const s = q ? q.toLowerCase() : "";
+    const base = s
+      ? mice.filter((m) => [m.label, m.g1, m.g2, m.g3, m.dob, m.note].join(" ").toLowerCase().includes(s))
+      : mice;
+    // 순서: 일반 마우스 → Prep 완료 마우스 → baby (각 묶음 안의 순서는 그대로)
+    const isBabyM = (m) => (m.label || "").trim().toUpperCase().startsWith("BABY");
+    return [
+      ...base.filter((m) => !isBabyM(m) && !m.prep),
+      ...base.filter((m) => !isBabyM(m) && m.prep),
+      ...base.filter(isBabyM),
+    ];
   }, [mice, q]);
 
   const counts = useMemo(() => {
@@ -1070,7 +1078,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
         let to = d.side === "below" ? d.overIdx + 1 : d.overIdx;
         if (from < to) to -= 1;
         setDrag(null);
-        if (from !== to) { await persistOrder(mice, from, to, "mc_mice"); await ops.reload(); }
+        if (from !== to) { await persistOrder(list, from, to, "mc_mice"); await ops.reload(); }
         return;
       }
       setDrag(null);
