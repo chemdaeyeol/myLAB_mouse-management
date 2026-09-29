@@ -180,7 +180,7 @@ function MouseForm({ init, cage, onSave, onCancel, cols = 6 }) {
 function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, setEditing, confirmDelete, doses, doseCol, onMemo }) {
   const { unit, cycle } = useContext(AgeUnitCtx);
   const canEdit = useContext(EditCtx);
-  const [tip, setTip] = useState(null);     // 메모 말풍선 위치 {left, top}
+  const [tip, setTip] = useState(null);     // 말풍선 {left, top, text} — 메모·농도 공용
   const tipText = [m.note, m.weight ? `무게 ${m.weight}` : ""].filter(Boolean).join("\n");
   useEffect(() => {                          // 스크롤하면 말풍선 닫기 (위치 어긋남 방지)
     if (!tip) return;
@@ -188,13 +188,14 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
     window.addEventListener("scroll", off, true);
     return () => window.removeEventListener("scroll", off, true);
   }, [tip]);
-  const showTip = (e) => {
-    if (!tipText || drag) return;
+  const showTipText = (e, text) => {
+    if (!text || drag) return;
     const r = e.currentTarget.getBoundingClientRect();
-    // 이름 가운데 위쪽 (화면 양 끝에서는 잘리지 않게 중심만 안쪽으로)
+    // 가리키는 칸 가운데 위쪽 (화면 양 끝에서는 잘리지 않게 중심만 안쪽으로)
     const cx = Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150);
-    setTip({ left: cx, top: r.top - 8 });
+    setTip({ left: cx, top: r.top - 8, text });
   };
+  const showTip = (e) => showTipText(e, tipText);
   const isDragging = drag?.idx === idx;
   const isTarget = drag && drag.mode === "move" && drag.overIdx === idx && drag.idx !== idx;
 
@@ -223,9 +224,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
           {(m.note || m.weight || canEdit) && <span className="memo-dot" aria-hidden="true" />}
         </span>
         {tip && createPortal(
-          <div className="memo-tip" style={{ left: tip.left, top: tip.top }}>
-            {tipText}
-          </div>, document.body)}
+          <div className="memo-tip" style={{ left: tip.left, top: tip.top }}>{tip.text}</div>, document.body)}
       </td>
       <td className="c">{m.g1 && <span className={"gchip g-" + (m.g1 || "").toUpperCase()} data-tip={`${cage.g1_label || "G1"} · ${genoTip(m.g1)}`}>{m.g1}</span>}</td>
       <td className="c">{m.g2 && <span className={"gchip g-" + (m.g2 || "").toUpperCase()} data-tip={`${cage.g2_label || "G2"} · ${genoTip(m.g2)}`}>{m.g2}</span>}</td>
@@ -243,7 +242,8 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
       {doseCol && (
         <td className="c dose-cell">
           {(doses || []).map((d, i) => (
-            <span key={i} className={"dose-now d-" + d.kind}>{d.text}</span>
+            <span key={i} className={"dose-now d-" + d.kind}
+              onMouseEnter={(e) => showTipText(e, d.dose)} onMouseLeave={() => setTip(null)}>{d.text}</span>
           ))}
         </td>
       )}
@@ -562,11 +562,11 @@ function doseToday(items, kind) {
   const amount = runsText(sorted, spans, t, tam);
 
   const allDone = sorted.every((r) => r.status === "완료") || spans.every((sp) => sp && sp.b < t);
-  if (allDone) return { kind: "done", text: line("완료", amount, doseOf(sorted)) };
+  if (allDone) return { kind: "done", text: line("완료", amount), dose: doseOf(sorted) };
   const cur = spans.findIndex((sp) => sp && t >= sp.a && t <= sp.b);
-  if (cur >= 0) return { kind: "on", text: line("투여 중", amount, sorted[cur].dose) };
-  if (started.length === 0) return { kind: "next", text: line("예정", null, sorted[0].dose) };
-  return { kind: "next", text: line("휴식", amount, doseOf(started)) };
+  if (cur >= 0) return { kind: "on", text: line("투여 중", amount), dose: (sorted[cur].dose || "").trim() };
+  if (started.length === 0) return { kind: "next", text: line("예정", null), dose: (sorted[0].dose || "").trim() };
+  return { kind: "next", text: line("휴식", amount), dose: doseOf(started) };
 }
 
 // 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
@@ -1212,13 +1212,15 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
                     const ids = schedIdsOf(cage);
                     if (!ids.length || !m.label) return [];
                     const key = normTarget(m.label);
+                    // baby는 케이지 전체 Cycle에서 제외 (직접 대상으로 지정한 Cycle만 표시)
+                    const babyRow = (m.label || "").trim().toUpperCase().startsWith("BABY");
                     const byKind = new Map();   // 같은 종류(DOX끼리)는 Cycle을 이어서 합산
                     ids.forEach((id) => {
                       const sc = (scheds || []).find((x) => x.id === id);
                       const cyc = (doxRows || []).filter((r) => r.sched_id === id);
                       // 직접 지정된 Cycle이 있으면 그것, 없으면 케이지 전체 Cycle
                       const own = cyc.filter((r) => normTarget(r.target) === key);
-                      const items = own.length ? own : cyc.filter((r) => isCageWide(r.target, cage.label));
+                      const items = own.length ? own : (babyRow ? [] : cyc.filter((r) => isCageWide(r.target, cage.label)));
                       if (!items.length) return;
                       const k = isTamKind(sc?.kind) ? "TAM" : String(sc?.kind || "DOX").trim().toUpperCase();
                       if (!byKind.has(k)) byKind.set(k, { kind: sc?.kind, items: [] });
