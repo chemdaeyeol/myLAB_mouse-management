@@ -13,6 +13,7 @@ import { ChatPanel, IntroModal, shouldShowIntro, usePresence, readChatName } fro
 const GROUPS = [
   { key: "chd8", label: "CHD8", icon: Rat },
   { key: "gfap", label: "GFAP x rtTA x 4F2A", icon: Rat },
+  { key: "dox", label: "Dox", icon: Rat },
   { key: "behavior", label: "Behavior Test · IHC", icon: Rat },
 ];
 const CAGE_TYPES = {
@@ -977,7 +978,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
   const tagBtnRef = useRef(null);
   const [drag, setDrag] = useState(null); // {idx,dx,dy,mode,overIdx,side}
   const dragRef = useRef(null);
-  const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type });
+  const [cf, setCf] = useState({ label: cage.label, note: cage.note || "", type: cage.type, grp: cage.grp });
   const t = CAGE_TYPES[cage.type] || CAGE_TYPES.other;
 
   const list = useMemo(() => {
@@ -1120,8 +1121,14 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
             <select className="in" value={cf.type} onChange={(e) => setCf({ ...cf, type: e.target.value })}>
               {Object.keys(CAGE_TYPES).map((k) => <option key={k} value={k}>{CAGE_TYPES[k].label}</option>)}
             </select>
+            <select className="in" title="탭 (다른 탭으로 옮기기)" value={cf.grp} onChange={(e) => setCf({ ...cf, grp: e.target.value })}>
+              {GROUPS.map((g) => <option key={g.key} value={g.key}>{g.label} 탭</option>)}
+            </select>
             <button className="btn btn-s" onClick={() => setEditCage(false)}><X size={14} /></button>
-            <button className="btn btn-p" onClick={async () => { await cageOps.update(cage.id, cf, me, `케이지 ${cf.label}`); setEditCage(false); }}><Check size={14} /></button>
+            <button className="btn btn-p" onClick={async () => {
+              const moved = cf.grp !== cage.grp ? ` → ${GROUPS.find((g) => g.key === cf.grp)?.label || cf.grp} 탭` : "";
+              await cageOps.update(cage.id, cf, me, `케이지 ${cf.label}${moved}`); setEditCage(false);
+            }}><Check size={14} /></button>
           </div>
         ) : (
           <>
@@ -1362,9 +1369,10 @@ VITE_SUPABASE_ANON_KEY=eyJ...`}</pre></div>;
       okText: "추가",
     });
     if (!label) return;
-    const proto = gCages[gCages.length - 1];
+    // 유전자형 열 이름은 같은 탭의 마지막 케이지를 따라감 (Dox 탭이 비어 있으면 GFAP 탭 것을 사용)
+    const proto = gCages[gCages.length - 1] || (grp === "dox" ? cages.filter((c) => c.grp === "gfap").slice(-1)[0] : undefined);
     await cageOps.add({
-      grp, label, type: grp === "behavior" ? "ihc" : "mating", note: "",
+      grp, label, type: grp === "behavior" ? "ihc" : grp === "dox" ? "dox" : "mating", note: "",
       g1_label: proto?.g1_label || "", g2_label: proto?.g2_label || "", g3_label: proto?.g3_label || "",
       sort: gCages.length + 1,
     }, me, `케이지 ${label}`);
