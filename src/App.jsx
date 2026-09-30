@@ -83,6 +83,16 @@ function parseDob(s) {
   const d = new Date(y, Number(m[2]) - 1, Number(m[3]));
   return isNaN(d) ? null : d;
 }
+// 케이지 표는 DOB 순으로 자동 정렬 (그래서 드래그로 순서 바꾸기는 끔)
+const SORT_BY_DOB = true;
+// DOB 빠른 순(나이 많은 순). DOB가 없으면 뒤로, 같으면 원래 순서 유지
+function sortByDob(list) {
+  return list
+    .map((m, i) => ({ m, i, t: parseDob(m.dob)?.getTime() ?? Infinity }))
+    .sort((a, b) => (a.t - b.t) || (a.i - b.i))
+    .map((x) => x.m);
+}
+
 function ageWeeks(dobStr) {
   const d = parseDob(dobStr); if (!d) return null;
   const w = (Date.now() - d.getTime()) / (7 * 86400000);   // 소수 주령 (2주 6일 → 2.9)
@@ -977,10 +987,11 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
       : mice;
     // 순서: 일반 마우스 → Prep 완료 마우스 → baby (각 묶음 안의 순서는 그대로)
     const isBabyM = (m) => (m.label || "").trim().toUpperCase().startsWith("BABY");
+    const ord = SORT_BY_DOB ? sortByDob : (x) => x;
     return [
-      ...base.filter((m) => !isBabyM(m) && !m.prep),
-      ...base.filter((m) => !isBabyM(m) && m.prep),
-      ...base.filter(isBabyM),
+      ...ord(base.filter((m) => !isBabyM(m) && !m.prep)),
+      ...ord(base.filter((m) => !isBabyM(m) && m.prep)),
+      ...ord(base.filter(isBabyM)),
     ];
   }, [mice, q]);
 
@@ -1042,7 +1053,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
         : isOutsidePanel(ev.clientX, ev.clientY) || Math.abs(dx) > 150;
       d.mode = d.touch ? "delete" : (far ? "delete" : "move");
       d.overIdx = null;
-      if (!d.touch && !far) {
+      if (!d.touch && !far && !SORT_BY_DOB) {
         const el = document.elementFromPoint(ev.clientX, ev.clientY);
         const tr = el && el.closest("tr[data-row]");
         if (tr && tr.dataset.cage === cage.id) {
@@ -1123,7 +1134,7 @@ function CageCard({ cage, mice, ops, cageOps, me, q, dragCage, doxRows, doxOps, 
             <span className="cage-status">
               {asTags(cage.tags).map((k) => {
                 const t = tagInfo(k); if (!t) return null;
-                return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg, borderColor: t.color + "40" }}>{t.label}</span>;
+                return <span key={k} className="tag-badge" style={{ color: t.color, background: t.bg }}>{t.label}</span>;
               })}
               {cage.done && <span className="done-badge"><CheckCircle2 size={12} /> 완료</span>}
             </span>
