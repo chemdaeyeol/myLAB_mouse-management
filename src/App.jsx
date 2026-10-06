@@ -254,7 +254,7 @@ function MouseRow({ m, idx, cage, ops, me, canDrag, isBaby, w, drag, onGrab, set
         <td className="c dose-cell">
           {(doses || []).map((d, i) => (
             <span key={i} className={"dose-now d-" + d.kind}
-              onMouseEnter={(e) => showTipText(e, d.dose)} onMouseLeave={() => setTip(null)}>{d.text}</span>
+              onMouseEnter={(e) => showTipText(e, d.tip || d.dose)} onMouseLeave={() => setTip(null)}>{d.text}</span>
           ))}
         </td>
       )}
@@ -575,9 +575,17 @@ function doseToday(items, kind) {
   const allDone = sorted.every((r) => r.status === "완료") || spans.every((sp) => sp && sp.b < t);
   if (allDone) return { kind: "done", text: line("완료", amount), dose: doseOf(sorted) };
   const cur = spans.findIndex((sp) => sp && t >= sp.a && t <= sp.b);
-  if (cur >= 0) return { kind: "on", text: line("투여 중", amount), dose: (sorted[cur].dose || "").trim() };
+  if (cur >= 0) {
+    const curDose = (sorted[cur].dose || "").trim();
+    const curDates = String(sorted[cur].dates || "").trim().replace(/^\d{2,4}\./, "");   // 26.10.06~10 → 10.06~10
+    return { kind: "on", text: line("투여 중", amount), dose: curDose, tip: [curDose, curDates].filter(Boolean).join(" · ") };
+  }
   if (started.length === 0) return { kind: "next", text: line("예정", null), dose: (sorted[0].dose || "").trim() };
-  return { kind: "next", text: line("휴식", amount), dose: doseOf(started) };
+  // 휴식: 말풍선에 가장 최근 회차의 농도 + 날짜
+  const last = started[started.length - 1];
+  const lastDose = (last.dose || "").trim();
+  const lastDates = String(last.dates || "").trim().replace(/^\d{2,4}\./, "");
+  return { kind: "next", text: line("휴식", amount), dose: doseOf(started), tip: [lastDose, lastDates].filter(Boolean).join(" · ") };
 }
 
 // 오늘 투여 중 + 3일 안에 시작할 Cycle 모으기 (모든 탭의 케이지 대상)
